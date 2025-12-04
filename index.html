@@ -1,1250 +1,1269 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RisoTrack - Gestione Business Riso</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7f9fb;
-        }
-        .text-rice { color: #5a3c20; }
-        .bg-rice { background-color: #f0e68c; }
-        /* Stili per il pulsante loading */
-        .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid #fff;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            animation: spin 1s linear infinite;
-            margin-right: 8px;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .chart-container {
-            width: 100%;
-            overflow-x: auto;
-            border: 1px solid #e5e7eb;
-            border-radius: 0.75rem;
-            padding: 1rem;
-            background-color: #fff;
-        }
-        .chart-svg {
-            min-width: 600px; /* Base width for chart clarity */
-            height: 300px;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RisoTrack - Gestione Business Riso</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+        <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes"> 
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .text-rice { color: #5a3c20; }
+        .bg-rice { background-color: #f0e68c; }
+        /* Stili per il pulsante loading */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .chart-container {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            background-color: #fff;
+        }
+        .chart-svg {
+            min-width: 600px; /* Base width for chart clarity */
+            height: 300px;
+        }
+    </style>
 </head>
 <body>
 
-    <div id="app" class="min-h-screen flex flex-col items-center p-4 pb-20">
-        
-        <header class="w-full max-w-4xl mb-6 bg-white shadow-lg rounded-xl p-4 flex justify-between items-center">
-            <h1 class="text-3xl font-bold text-rice">🍚 RisoTrack</h1>
-            <div id="auth-status" class="text-sm text-gray-600">
-                <span id="user-id-display" class="font-mono bg-gray-100 p-1 rounded" title="ID Utente Completo (per debug)">Caricamento utente...</span>
-            </div>
-        </header>
-
-        <div id="loading" class="text-center p-8">
-            <div class="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mt-2 text-gray-500">Inizializzazione Firebase e caricamento dati...</p>
-        </div>
-
-        <main id="main-content" class="w-full max-w-4xl hidden">
-            
-            <section id="dashboard" class="space-y-6">
-                
-                <h2 class="text-2xl font-semibold text-gray-800">Dashboard & Banche in Tempo Reale</h2>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    
-                    <div class="bg-white shadow-2xl rounded-xl p-6 border-t-4 border-yellow-500">
-                        <h3 class="text-xl font-medium text-gray-500">Banca del Riso (Disponibile)</h3>
-                        <p id="rice-inventory" class="text-4xl font-extrabold mt-2 text-rice">0 g</p>
-                        <p class="text-sm text-gray-400 mt-1">Acquisti - Vendite - Uso Personale</p>
-                    </div>
-
-                    <div class="bg-white shadow-2xl rounded-xl p-6 border-t-4 border-green-500">
-                        <h3 class="text-xl font-medium text-gray-500">Banca Finanziaria (Netto)</h3>
-                        <p id="financial-net" class="text-4xl font-extrabold mt-2 text-gray-800">0,00 €</p>
-                        <p class="text-sm text-gray-400 mt-1">Ricavi Totali - Costi Totali</p>
-                    </div>
-                </div>
-
-                <div class="bg-white shadow-xl rounded-xl p-6">
-                    <h3 class="text-xl font-medium text-gray-700 mb-4">Analisi e Riordino Scorte</h3>
-                    <div id="profit-analysis" class="text-center p-8 bg-gray-50 rounded-lg">
-                        <p id="average-cost-display" class="font-semibold text-lg text-gray-600">Costo Unitario Medio Storico: N/D</p>
-                        <p class="mt-4 text-gray-500">La sezione Analisi dettagliata si trova nel tab dedicato in basso.</p>
-                        <div class="h-12 bg-gray-200 rounded mt-4"></div>
-                        
-                        <button onclick="openStockPlannerModal()" class="mt-6 p-3 w-full bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition shadow-md flex items-center justify-center font-bold">
-                            📦 Pianificatore Scorte e Riordino (AI)
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="bg-white shadow-xl rounded-xl p-6">
-                    <h3 class="text-xl font-medium text-gray-700 mb-4">Azioni Rapide</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <button onclick="openTransactionModal('Acquisto')" class="p-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-md">
-                            + Acquisto
-                        </button>
-                        <button onclick="openTransactionModal('Vendita')" class="p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition shadow-md">
-                            + Vendita
-                        </button>
-                        <button onclick="openTransactionModal('Uso Personale')" class="p-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition shadow-md">
-                            Uso Personale
-                        </button>
-                        <button onclick="showSection('transactions-list')" class="p-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition shadow-md">
-                            Storico Trans.
-                        </button>
-                    </div>
-                </div>
-
-            </section>
-            
-            <section id="suppliers-list" class="hidden mt-8">
-                <h2 class="text-2xl font-semibold text-rice mb-4">Fornitori</h2>
-                <button onclick="showSupplierModal()" class="mb-4 p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">+ Nuovo Fornitore</button>
-                <div id="suppliers-container" class="space-y-3"></div>
-            </section>
-            
-            <section id="customers-list" class="hidden mt-8">
-                <h2 class="text-2xl font-semibold text-rice mb-4">Clienti</h2>
-                <button onclick="showCustomerModal()" class="mb-4 p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">+ Nuovo Cliente</button>
-                <div id="customers-container" class="space-y-3"></div>
-            </section>
-
-            <section id="transactions-list" class="hidden mt-8">
-                <h2 class="text-2xl font-semibold text-rice mb-4">Storico Transazioni</h2>
-                <div id="transactions-container" class="space-y-3"></div>
-            </section>
-            
-            <section id="analytics-section" class="hidden mt-8">
-                <h2 class="text-2xl font-semibold text-rice mb-4">Analisi Dati e Grafici</h2>
-                
-                <div class="space-y-8">
-                    
-                    <div class="bg-white shadow-xl rounded-xl p-6">
-                        <h3 class="text-xl font-medium text-gray-700 mb-4">Flusso di Riso (Acquisti vs Vendite per Mese)</h3>
-                        <div id="flow-chart-container" class="chart-container">
-                            <svg id="flow-chart" class="chart-svg"></svg>
-                        </div>
-                        <p class="text-sm text-gray-500 mt-2">Quantità aggregata in grammi per mese. Scorri orizzontalmente se necessario.</p>
-                    </div>
-
-                    <div class="bg-white shadow-xl rounded-xl p-6">
-                        <h3 class="text-xl font-medium text-gray-700 mb-4">Top 5 Clienti per Quantità Acquistata (g)</h3>
-                        <div id="customer-chart-container" class="chart-container">
-                             <svg id="customer-chart" class="chart-svg"></svg>
-                        </div>
-                        <p class="text-sm text-gray-500 mt-2">Visualizzazione dei clienti con il volume di acquisto più alto.</p>
-                    </div>
-                    
-                </div>
-            </section>
-
-        </main>
-        
-        <nav class="fixed bottom-0 w-full max-w-4xl bg-white shadow-2xl rounded-t-xl z-10 p-2 border-t border-gray-200">
-            <div class="flex justify-around text-gray-600 font-medium">
-                <button onclick="showSection('dashboard')" class="flex flex-col items-center p-2 text-indigo-600">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
-                    <span class="text-xs mt-1">Home</span>
-                </button>
-                <button onclick="showSection('suppliers-list')" class="flex flex-col items-center p-2 hover:text-indigo-600 transition">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18H4v-1a4 4 0 014-4h4a4 4 0 014 4v1z"/></svg>
-                    <span class="text-xs mt-1">Fornitori</span>
-                </button>
-                <button onclick="showSection('customers-list')" class="flex flex-col items-center p-2 hover:text-indigo-600 transition">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.662.07-1a6.958 6.958 0 00-1.28-4.227 4.989 4.989 0 01-2.685.11 4.989 4.989 0 01-2.684-.11C7.03 12.773 6.904 14.168 7 15.75L7 17h6.93z"/></svg>
-                    <span class="text-xs mt-1">Clienti</span>
-                </button>
-                <button onclick="showSection('analytics-section')" class="flex flex-col items-center p-2 hover:text-indigo-600 transition">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM4 10a6 6 0 016-6v6H4zm8 0a6 6 0 00-6 6v-6h6z" clip-rule="evenodd" /></svg>
-                    <span class="text-xs mt-1">Analisi</span>
-                </button>
-                <button onclick="showSection('transactions-list')" class="flex flex-col items-center p-2 hover:text-indigo-600 transition">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm10 2a2 2 0 012 2v2a2 2 0 01-2 2h-4a2 2 0 01-2-2V8a2 2 0 012-2h4z"/></svg>
-                    <span class="text-xs mt-1">Storico</span>
-                </button>
-            </div>
-        </nav>
-
-
-        <div id="transaction-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 p-4">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-                <h3 id="transaction-title" class="text-2xl font-bold mb-4 text-rice">Nuova Transazione</h3>
-                <form id="transaction-form" onsubmit="handleTransaction(event)">
-                    
-                    <input type="hidden" id="transaction-type">
-                    
-                    <div class="mb-4">
-                        <label for="transaction-quantity" class="block text-sm font-medium text-gray-700">Quantità (g)</label>
-                        <input type="number" id="transaction-quantity" min="1" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
-                    </div>
-
-                    <div id="cost-ricavo-group" class="mb-4 hidden">
-                        <label for="transaction-cost" class="block text-sm font-medium text-gray-700">Costo/Ricavo (€)</label>
-                        <input type="number" id="transaction-cost" step="0.01" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
-                    </div>
-
-                    <div id="entity-link-group" class="mb-4 hidden">
-                        <label for="transaction-entity-link" class="block text-sm font-medium text-gray-700"></label>
-                        <select id="transaction-entity-link" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></select>
-                    </div>
-
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" onclick="closeTransactionModal()" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition">Annulla</button>
-                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">Registra</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <div id="supplier-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 p-4">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-                <h3 class="text-2xl font-bold mb-4 text-rice">Gestione Fornitore</h3>
-                <form id="supplier-form" onsubmit="handleSupplier(event)">
-                    <input type="hidden" id="supplier-doc-id">
-                    
-                    <div class="mb-4"><label for="supplier-name" class="block text-sm font-medium text-gray-700">Nome/Ragione Sociale</label><input type="text" id="supplier-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
-                    <div class="mb-4"><label for="supplier-alias" class="block text-sm font-medium text-gray-700">Soprannome</label><input type="text" id="supplier-alias" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
-                    <div class="mb-4"><label for="supplier-phone" class="block text-sm font-medium text-gray-700">Numero di Telefono</label><input type="tel" id="supplier-phone" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
-                    
-                    <div class="mb-4">
-                        <label for="supplier-contact-method" class="block text-sm font-medium text-gray-700">Metodo di Contatto</label>
-                        <select id="supplier-contact-method" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
-                            <option value="WhatsApp">WhatsApp</option>
-                            <option value="Telegram">Telegram</option>
-                            <option value="Instagram DM">Instagram DM</option>
-                            <option value="Teleguard">Teleguard</option>
-                            <option value="Email">Email</option>
-                            <option value="Telefono">Telefono</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-4">
-                        <label for="supplier-payment-method" class="block text-sm font-medium text-gray-700">Metodo di Pagamento Previsto</label>
-                        <select id="supplier-payment-method" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
-                            <option value="Contanti">Contanti</option>
-                            <option value="Satispay">Satispay</option>
-                            <option value="Bancomat/Carta">Bancomat/Carta</option>
-                            <option value="Bonifico">Bonifico</option>
-                            <option value="Crypto">Crypto</option>
-                            <option value="Altro">Altro</option>
-                        </select>
-                    </div>
-                    
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" onclick="closeSupplierModal()" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition">Annulla</button>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Salva Fornitore</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        
-        <div id="customer-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 p-4">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-                <h3 class="text-2xl font-bold mb-4 text-rice">Gestione Cliente</h3>
-                <form id="customer-form" onsubmit="handleCustomer(event)">
-                    <input type="hidden" id="customer-doc-id">
-                    
-                    <div class="mb-4"><label for="customer-name" class="block text-sm font-medium text-gray-700">Nome Completo</label><input type="text" id="customer-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
-                    <div class="mb-4"><label for="customer-alias" class="block text-sm font-medium text-gray-700">Soprannome/Alias</label><input type="text" id="customer-alias" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
-                    <div class="mb-4"><label for="customer-phone" class="block text-sm font-medium text-gray-700">Numero di Telefono</label><input type="tel" id="customer-phone" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
-                    
-                    <div class="mb-4">
-                        <label for="customer-contact-method" class="block text-sm font-medium text-gray-700">Metodo di Contatto</label>
-                        <select id="customer-contact-method" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
-                            <option value="WhatsApp">WhatsApp</option>
-                            <option value="Telegram">Telegram</option>
-                            <option value="Instagram DM">Instagram DM</option>
-                            <option value="Teleguard">Teleguard</option>
-                            <option value="Email">Email</option>
-                            <option value="Telefono">Telefono</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-4">
-                        <label for="customer-payment-method" class="block text-sm font-medium text-gray-700">Metodo di Pagamento Utilizzato</label>
-                        <select id="customer-payment-method" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
-                            <option value="Contanti">Contanti</option>
-                            <option value="Satispay">Satispay</option>
-                            <option value="Bancomat/Carta">Bancomat/Carta</option>
-                            <option value="Bonifico">Bonifico</option>
-                            <option value="Crypto">Crypto</option>
-                            <option value="Altro">Altro</option>
-                        </select>
-                    </div>
-                    
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" onclick="closeCustomerModal()" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition">Annulla</button>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Salva Cliente</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        
-        <div id="stock-planner-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 p-4">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
-                <h3 class="text-2xl font-bold mb-4 text-pink-600">📦 Pianificatore Scorte e Riordino (AI)</h3>
-                
-                <div id="stock-planner-result-content" class="mt-4 p-4 bg-gray-50 rounded-lg max-h-96 overflow-y-auto">
-                    <p class="text-center text-gray-500">Analisi in attesa...</p>
-                </div>
-
-                <div class="flex justify-end mt-4">
-                    <button type="button" onclick="closeStockPlannerModal()" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition">Chiudi</button>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, setDoc, deleteDoc, onSnapshot, collection, query, orderBy, where, runTransaction, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // =======================================================
-        // ** CONFIGURAZIONE FIREBASE MANUALE (Valori forniti dall'utente) **
-        // =======================================================
-
-        const firebaseConfig = {
-            // L'API Key del tuo progetto RisoTrack-Progetto
-            apiKey: "AIzaSyDxdN_63pt-Y-3XopQU96IuqOPrPQBq2AI", 
-            // Il dominio di autenticazione
-            authDomain: "risotrack-progetto.firebaseapp.com", 
-            // L'ID del tuo progetto (usato per i percorsi Firestore)
-            projectId: "risotrack-progetto", 
-            // Lo Storage Bucket
-            storageBucket: "risotrack-progetto.firebasestorage.app", 
-            // Il Messaging Sender ID
-            messagingSenderId: "5799605184", 
-            // L'App ID (usato per i percorsi Firestore)
-            appId: "1:5799605184:web:d2722c3efb7166fc994e25",
-        };
-
-        const appId = firebaseConfig.projectId; // Usiamo il Project ID come App ID per il percorso Firestore
-        const initialAuthToken = null; // Manteniamo a null
-        
-        // =======================================================
-        // ** FINE CONFIGURAZIONE MANUALE FIREBASE **
-        // =======================================================
-
-        // =======================================================
-        // ** CONFIGURAZIONE GEMINI (CHIAVE AGGIORNATA) **
-        // =======================================================
-        const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
-        const apiKey = "AIzaSyAvZFz4G6AokuDPH7bqXQxNlxq13ec0GG4"; // <--- LA TUA CHIAVE API ORA E' QUI
-        // =======================================================
-
-        let app, db, auth;
-        let userId = null;
-        let isAuthReady = false;
-        
-        // Collezioni private (MANDATORIO)
-        const FORNITORI_COLLECTION = 'fornitori';
-        const CLIENTI_COLLECTION = 'clienti';
-        const TRANSAZIONI_COLLECTION = 'transazioni';
-
-        // Variabili di Stato Globali
-        let suppliers = [];
-        let customers = [];
-        let transactions = [];
-        let riceInventory = 0;
-        let financialNet = 0;
-        let totalPurchasedQuantity = 0;
-        let totalPurchasedCost = 0;
-        let averageUnitCost = 0;
-        let monthlyConsumption = 0; // Nuovo campo per il consumo medio
-
-        // Funzione per formattare la valuta
-        const formatCurrency = (value) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
-        // Funzione per formattare la quantità (grammi)
-        const formatQuantity = (value) => `${value.toLocaleString('it-IT', { maximumFractionDigits: 0 })} g`;
-
-        // Utility per generare un alias carino
-        function createRiceAlias(uid) {
-            const riceNames = ["Arborio", "Carnaroli", "Basmati", "Jasmine", "Venere", "Ribe", "Selvatico", "Integrale", "Sushirice", "Originario"];
-            // Genera un indice numerico deterministico
-            let sum = 0;
-            for (let i = 0; i < 8; i++) { // Usa solo i primi 8 caratteri per una maggiore uniformità
-                sum += uid.charCodeAt(i);
-            }
-            const nameIndex = sum % riceNames.length;
-            
-            // Usa le ultime 4 cifre esadecimali del UID come suffisso
-            const suffix = uid.slice(-4).toUpperCase();
-            
-            return `${riceNames[nameIndex]}-${suffix}`;
-        }
-        
-        // ---------------------------------------------------
-        // 1. INIZIALIZZAZIONE FIREBASE E AUTENTICAZIONE
-        // ---------------------------------------------------
-
-        async function initFirebase() {
-            try {
-                // setLogLevel('Debug');
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                
-                // Imposta la persistenza su locale
-                await setPersistence(auth, browserLocalPersistence);
-
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                // Chiamiamo onAuthStateChanged qui, dopo che auth è stato inizializzato.
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        const userAlias = createRiceAlias(userId); // Genera l'alias
-                        document.getElementById('user-id-display').textContent = `Utente: ${userAlias}`;
-                        document.getElementById('user-id-display').title = `ID Completo: ${userId}`; // Tooltip con l'ID intero
-                        isAuthReady = true;
-                        
-                        // Avvia i listener solo dopo che l'autenticazione è pronta
-                        startFirestoreListeners();
-                        
-                        document.getElementById('loading').classList.add('hidden');
-                        document.getElementById('main-content').classList.remove('hidden');
-                        showSection('dashboard'); // Mostra la dashboard come sezione iniziale
-
-                    } else {
-                        console.log("Nessun utente autenticato. Tentativo di accesso anonimo...");
-                    }
-                });
-
-            } catch (error) {
-                console.error("Errore nell'inizializzazione o nell'autenticazione di Firebase:", error);
-                // MESSAGGIO DI ERRORE DETTAGLIATO PER IL BUG auth/configuration-not-found
-                document.getElementById('loading').innerHTML = `
-                    <p class="text-red-500 font-bold text-lg">Errore di Connessione al Database (Firebase):</p>
-                    <p class="text-gray-700 mt-2">Errore: ${error.message}</p>
-                    <p class="text-gray-700 mt-4 p-3 bg-red-100 rounded-lg border border-red-300">
-                        L'errore '${error.code}' indica che Firebase Auth non riesce a trovare la configurazione. 
-                        **Per risolvere questo problema, devi andare nella console Firebase**, sezione 
-                        **Authentication**, tab **Sign-in method**, e assicurarti che il metodo di accesso 
-                        **Anonimo** sia **Abilitato** (lo usiamo per autenticarti automaticamente).
-                        Inoltre, controlla le **Regole di Sicurezza** di Firestore.
-                    </p>
-                `;
-            }
-        }
-
-        // ---------------------------------------------------
-        // 2. FUNZIONI DI BASE PER FIRESTORE
-        // ---------------------------------------------------
-
-        const getCollectionPath = (collectionName) => {
-            if (!userId) {
-                console.error("UserID non disponibile.");
-                return null;
-            }
-            return `artifacts/${appId}/users/${userId}/${collectionName}`;
-        };
-
-        // ---------------------------------------------------
-        // 3. LOGICA DI CALCOLO E AGGIORNAMENTO UI
-        // ---------------------------------------------------
-
-        function calculateMonthlyConsumption() {
-            const consumption = transactions.filter(t => t.tipo === 'Vendita' || t.tipo === 'Uso Personale');
-            
-            if (consumption.length === 0) {
-                monthlyConsumption = 0;
-                return;
-            }
-
-            const now = new Date();
-            const oldestDate = consumption.reduce((min, t) => {
-                const date = new Date(t.data);
-                return date < min ? date : min;
-            }, now);
-            
-            const timeDiff = now.getTime() - oldestDate.getTime();
-            const totalDays = timeDiff / (1000 * 3600 * 24);
-            
-            if (totalDays < 1) { // Consumo inferiore a un giorno
-                 monthlyConsumption = d3.sum(consumption, d => parseFloat(d.quantita) || 0) * 30; // Stima a 30 giorni
-                 return;
-            }
-
-            const totalConsumption = d3.sum(consumption, d => parseFloat(d.quantita) || 0);
-            
-            // Calcola il consumo medio giornaliero e lo moltiplica per 30.44 (media giorni in un mese)
-            const dailyConsumption = totalConsumption / totalDays;
-            monthlyConsumption = dailyConsumption * 30.44;
-        }
-
-
-        function updateCalculations() {
-            let totalAcquisto = 0;
-            let totalVendita = 0;
-            let totalUsoPersonale = 0;
-            let totalCosti = 0;
-            let totalRicavi = 0;
-            
-            totalPurchasedQuantity = 0;
-            totalPurchasedCost = 0;
-
-            transactions.forEach(t => {
-                const quantity = parseFloat(t.quantita) || 0;
-                const cost = parseFloat(t.costo) || 0; // Usiamo 'costo' per Acquisto e Ricavo per Vendita
-
-                if (t.tipo === 'Acquisto') {
-                    totalAcquisto += quantity;
-                    totalCosti += cost;
-                    totalPurchasedQuantity += quantity;
-                    totalPurchasedCost += cost;
-                } else if (t.tipo === 'Vendita') {
-                    totalVendita += quantity;
-                    totalRicavi += cost;
-                } else if (t.tipo === 'Uso Personale') {
-                    totalUsoPersonale += quantity;
-                }
-            });
-
-            // Calcoli Principali
-            riceInventory = totalAcquisto - totalVendita - totalUsoPersonale;
-            financialNet = totalRicavi - totalCosti;
-            averageUnitCost = totalPurchasedQuantity > 0 ? totalPurchasedCost / totalPurchasedQuantity : 0;
-            
-            // Calcolo Consumo Medio
-            calculateMonthlyConsumption();
-
-            // Aggiornamento UI
-            document.getElementById('rice-inventory').textContent = formatQuantity(riceInventory);
-            
-            const financialDisplay = document.getElementById('financial-net');
-            financialDisplay.textContent = formatCurrency(financialNet);
-            financialDisplay.className = financialNet >= 0 ? 'text-4xl font-extrabold mt-2 text-green-600' : 'text-4xl font-extrabold mt-2 text-red-600';
-            
-            // Analisi
-            const costDisplay = document.getElementById('average-cost-display');
-            costDisplay.textContent = averageUnitCost > 0 
-                ? `Costo Unitario Medio Storico: ${formatCurrency(averageUnitCost)}/g`
-                : 'Costo Unitario Medio Storico: N/D (Nessun acquisto registrato)';
-
-            renderTransactionList();
-            renderSuppliersList();
-            renderCustomersList();
-            // renderAnalytics() non viene chiamato qui per evitare errori di D3 se non è il tab attivo, verrà chiamato in showSection.
-        }
-
-        // ---------------------------------------------------
-        // 4. LISTENER FIRESTORE (Real-time)
-        // ---------------------------------------------------
-
-        function startFirestoreListeners() {
-            if (!isAuthReady) return;
-
-            // Listener Fornitori
-            const fornitoriQ = collection(db, getCollectionPath(FORNITORI_COLLECTION));
-            onSnapshot(fornitoriQ, (snapshot) => {
-                suppliers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                updateCalculations();
-                populateEntitySelects();
-            }, (error) => console.error("Errore listener Fornitori:", error));
-
-            // Listener Clienti
-            const clientiQ = collection(db, getCollectionPath(CLIENTI_COLLECTION));
-            onSnapshot(clientiQ, (snapshot) => {
-                customers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                updateCalculations();
-                populateEntitySelects();
-            }, (error) => console.error("Errore listener Clienti:", error));
-
-            // Listener Transazioni
-            const transazioniQ = collection(db, getCollectionPath(TRANSAZIONI_COLLECTION));
-            onSnapshot(transazioniQ, (snapshot) => {
-                transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // Ordina per data decrescente (ordinamento in client-side per evitare problemi di indicizzazione)
-                transactions.sort((a, b) => new Date(b.data) - new Date(a.data));
-                updateCalculations(); // Ricalcola tutto ad ogni aggiornamento
-            }, (error) => console.error("Errore listener Transazioni:", error));
-        }
-
-        // ---------------------------------------------------
-        // 5. RENDERING E UI
-        // ---------------------------------------------------
-
-        function showSection(sectionId) {
-            document.querySelectorAll('#main-content section').forEach(section => {
-                section.classList.add('hidden');
-            });
-            document.getElementById(sectionId).classList.remove('hidden');
-            
-            // Se è la sezione analytics, forziamo il rendering dei grafici
-            if (sectionId === 'analytics-section') {
-                // CORREZIONE GRAFICI: Assicuriamo che updateCalculations sia stato chiamato
-                // e che i dati siano pronti prima di chiamare renderAnalytics.
-                renderAnalytics(); 
-            }
-
-            // Aggiorna lo stato della navigazione
-            document.querySelectorAll('nav button').forEach(btn => {
-                btn.classList.remove('text-indigo-600');
-                if (btn.onclick.toString().includes(`showSection('${sectionId}')`)) {
-                    btn.classList.add('text-indigo-600');
-                }
-            });
-        }
-        
-        function getEntityName(id, type) {
-            if (type === 'Acquisto') {
-                const supplier = suppliers.find(s => s.id === id);
-                return supplier ? (supplier.soprannome || supplier.nomeCompleto) : 'Fornitore Sconosciuto';
-            }
-            if (type === 'Vendita') {
-                const customer = customers.find(c => c.id === id);
-                return customer ? (customer.soprannome || customer.nomeCompleto) : 'Cliente Sconosciuto';
-            }
-            return '';
-        }
-
-        function renderTransactionList() {
-            const container = document.getElementById('transactions-container');
-            container.innerHTML = transactions.map(t => {
-                const isAcquisto = t.tipo === 'Acquisto';
-                const isVendita = t.tipo === 'Vendita';
-                const color = isAcquisto ? 'bg-red-100 border-red-400' : isVendita ? 'bg-green-100 border-green-400' : 'bg-yellow-100 border-yellow-400';
-                const entityName = getEntityName(t.linkEntita, t.tipo);
-                
-                let marginInfo = '';
-                if (isVendita && averageUnitCost > 0) {
-                    const costOfGoodsSold = (parseFloat(t.quantita) || 0) * averageUnitCost;
-                    const profitMargin = (parseFloat(t.costo) || 0) - costOfGoodsSold;
-                    marginInfo = `<p class="text-sm font-semibold mt-1 ${profitMargin >= 0 ? 'text-green-700' : 'text-red-700'}">Margine: ${formatCurrency(profitMargin)}</p>`;
-                }
-
-                return `
-                    <div class="p-4 rounded-xl shadow-md border-l-4 ${color} flex justify-between items-center">
-                        <div>
-                            <p class="text-lg font-bold text-gray-800">${t.tipo} (${formatQuantity(t.quantita)})</p>
-                            ${isAcquisto || isVendita ? `<p class="text-sm text-gray-600">${isAcquisto ? 'Costo' : 'Ricavo'}: <span class="font-bold">${formatCurrency(t.costo)}</span></p>` : `<p class="text-sm text-gray-600">Nessun impatto finanziario</p>`}
-                            ${marginInfo}
-                            ${entityName ? `<p class="text-xs text-gray-500 mt-1">${isAcquisto ? 'Fornitore' : 'Cliente'}: ${entityName}</p>` : ''}
-                        </div>
-                        <p class="text-xs text-gray-500">${new Date(t.data).toLocaleDateString('it-IT')}</p>
-                    </div>
-                `;
-            }).join('');
-            if (transactions.length === 0) container.innerHTML = '<p class="text-center text-gray-500 p-4">Nessuna transazione registrata.</p>';
-        }
-
-        function renderSuppliersList() {
-            const container = document.getElementById('suppliers-container');
-            container.innerHTML = suppliers.map(s => `
-                <div class="bg-white p-4 rounded-xl shadow flex justify-between items-center">
-                    <div>
-                        <p class="text-lg font-bold text-rice">${s.nomeCompleto} ${s.soprannome ? `(${s.soprannome})` : ''}</p>
-                        <p class="text-sm text-gray-500">Contatto: ${s.metodoContatto || 'N/D'} | Pagamento: ${s.metodoPagamento || 'N/D'}</p>
-                    </div>
-                    <button onclick="showSupplierModal('${s.id}')" class="ml-4 p-2 text-blue-500 hover:text-blue-700 transition">Modifica</button>
-                </div>
-            `).join('');
-            if (suppliers.length === 0) container.innerHTML = '<p class="text-center text-gray-500 p-4">Nessun fornitore registrato. Aggiungine uno!</p>';
-        }
-
-        function renderCustomersList() {
-            const container = document.getElementById('customers-container');
-            container.innerHTML = customers.map(c => `
-                <div class="bg-white p-4 rounded-xl shadow flex justify-between items-center">
-                    <div>
-                        <p class="text-lg font-bold text-rice">${c.nomeCompleto} ${c.soprannome ? `(${c.soprannome})` : ''}</p>
-                        <p class="text-sm text-gray-500">Contatto: ${c.metodoContatto || 'N/D'} | Pagamento: ${c.metodoPagamento || 'N/D'}</p>
-                    </div>
-                    <button onclick="showCustomerModal('${c.id}')" class="ml-4 p-2 text-blue-500 hover:text-blue-700 transition">Modifica</button>
-                </div>
-            `).join('');
-            if (customers.length === 0) container.innerHTML = '<p class="text-center text-gray-500 p-4">Nessun cliente registrato. Aggiungine uno!</p>';
-        }
-
-        // ---------------------------------------------------
-        // 6. LOGICA E RENDERING ANALITICA (D3.js)
-        // ---------------------------------------------------
-
-        function renderAnalytics() {
-            if (transactions.length === 0) {
-                 document.getElementById('flow-chart-container').innerHTML = '<p class="text-center text-gray-500 p-4">Nessun dato di transazione per l\'analisi.</p>';
-                 document.getElementById('customer-chart-container').innerHTML = '<p class="text-center text-gray-500 p-4">Nessun dato di vendita per l\'analisi clienti.</p>';
-                 return;
-            }
-
-            renderFlowChart();
-            renderCustomerChart();
-        }
-
-        // --- Grafico Flusso di Riso (Acquisti vs Vendite) ---
-        function renderFlowChart() {
-            const containerId = 'flow-chart';
-            const data = transactions.filter(t => t.tipo === 'Acquisto' || t.tipo === 'Vendita').map(t => ({
-                date: new Date(t.data),
-                type: t.tipo,
-                quantity: parseFloat(t.quantita) || 0
-            }));
-
-            // 1. Aggregazione per Mese
-            const monthlyData = d3.rollups(
-                data,
-                v => ({
-                    Acquisto: d3.sum(v, d => d.type === 'Acquisto' ? d.quantity : 0),
-                    Vendita: d3.sum(v, d => d.type === 'Vendita' ? d.quantity : 0)
-                }),
-                d => d3.timeFormat("%Y-%m")(d.date) // Chiave: Anno-Mese
-            ).map(([key, value]) => ({
-                month: d3.timeParse("%Y-%m")(key),
-                Acquisto: value.Acquisto,
-                Vendita: value.Vendita
-            })).sort((a, b) => a.month - b.month);
-
-            if (monthlyData.length === 0) {
-                d3.select(`#${containerId}`).select("svg").html('<p class="text-center text-gray-500 p-4">Nessun dato di Acquisto o Vendita nel periodo.</p>');
-                return;
-            }
-
-            // Trasforma per lo stacked/grouped chart
-            const series = ['Acquisto', 'Vendita'].map(key => ({
-                key: key,
-                values: monthlyData.map(d => ({ date: d.month, quantity: d[key], type: key }))
-            }));
-
-            // 2. Setup D3
-            d3.select(`#${containerId}`).select("svg").selectAll("*").remove(); // Pulisce il grafico precedente
-            const svg = d3.select(`#${containerId}`).select("svg");
-            const margin = { top: 20, right: 20, bottom: 50, left: 60 };
-            const containerWidth = document.getElementById('flow-chart-container').clientWidth;
-            const width = Math.max(600, monthlyData.length * 50) - margin.left - margin.right; // Larghezza dinamica
-            const height = 300 - margin.top - margin.bottom;
-
-            svg.attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
-               .attr("width", "100%")
-               .attr("height", "100%"); // Rende SVG responsive
-
-            const g = svg.append("g")
-                .attr("transform", `translate(${margin.left},${margin.top})`);
-
-            // 3. Scale
-            const x = d3.scaleBand()
-                .domain(monthlyData.map(d => d.month))
-                .range([0, width])
-                .paddingInner(0.1);
-
-            const y = d3.scaleLinear()
-                .domain([0, d3.max(monthlyData, d => Math.max(d.Acquisto, d.Vendita)) || 100])
-                .nice()
-                .range([height, 0]);
-
-            const color = d3.scaleOrdinal()
-                .domain(['Acquisto', 'Vendita'])
-                .range(['#ef4444', '#10b981']);
-
-            // 4. Assi
-            const xAxis = d3.axisBottom(x)
-                .tickFormat(d3.timeFormat("%b %y")); // Formato Mese Anno
-
-            g.append("g")
-                .attr("transform", `translate(0,${height})`)
-                .call(xAxis)
-                .selectAll("text")
-                    .style("text-anchor", "end")
-                    .attr("dx", "-.8em")
-                    .attr("dy", ".15em")
-                    .attr("transform", "rotate(-45)");
-
-            g.append("g")
-                .call(d3.axisLeft(y).tickFormat(d => `${d} g`));
-
-            // 5. Grafico a Barre
-            const barWidth = x.bandwidth() / series.length;
-
-            series.forEach((s, i) => {
-                g.selectAll(`.bar-${s.key}`)
-                    .data(s.values)
-                    .enter().append("rect")
-                    .attr("class", `bar bar-${s.key}`)
-                    .attr("x", d => x(d.date) + (i * barWidth))
-                    .attr("y", d => y(d.quantity))
-                    .attr("width", barWidth)
-                    .attr("height", d => height - y(d.quantity))
-                    .attr("fill", color(s.key))
-                    .attr("rx", 3); // Bordo arrotondato
-            });
-            
-            // 6. Legenda
-            const legend = g.selectAll(".legend")
-                .data(series)
-                .enter().append("g")
-                .attr("class", "legend")
-                .attr("transform", (d, i) => `translate(${i * 100}, ${-10})`);
-
-            legend.append("rect")
-                .attr("x", width - 18)
-                .attr("width", 18)
-                .attr("height", 18)
-                .attr("fill", d => color(d.key))
-                .attr("rx", 3);
-
-            legend.append("text")
-                .attr("x", width - 24)
-                .attr("y", 9)
-                .attr("dy", ".35em")
-                .style("text-anchor", "end")
-                .text(d => d.key)
-                .style("font-size", "12px");
-        }
-
-        // --- Grafico Performance Clienti ---
-        function renderCustomerChart() {
-            const containerId = 'customer-chart';
-            
-            // 1. Aggregazione per Cliente
-            const sales = transactions.filter(t => t.tipo === 'Vendita');
-            
-            const customerSales = d3.rollups(
-                sales,
-                v => d3.sum(v, d => parseFloat(d.quantita) || 0),
-                d => d.linkEntita // Chiave: ID Cliente
-            ).map(([customerId, totalQuantity]) => ({
-                customerId,
-                totalQuantity,
-                customerName: getEntityName(customerId, 'Vendita')
-            })).filter(d => d.customerName !== 'Cliente Sconosciuto'); // Filtra i clienti non identificati
-
-            if (customerSales.length === 0) {
-                d3.select(`#${containerId}`).select("svg").html('<p class="text-center text-gray-500 p-4">Nessun dato di vendita per l\'analisi clienti.</p>');
-                return;
-            }
-
-            // Ordina e prendi i Top 5 (e Bottom 5, se ce ne sono abbastanza)
-            customerSales.sort((a, b) => b.totalQuantity - a.totalQuantity);
-            const topCustomers = customerSales.slice(0, 5);
-            // Non visualizziamo i bottom 5 se i top 5 sono gli unici clienti. Semplifichiamo mostrando solo i top.
-            const data = topCustomers;
-
-            // 2. Setup D3
-            d3.select(`#${containerId}`).select("svg").selectAll("*").remove();
-            const svg = d3.select(`#${containerId}`).select("svg");
-            const margin = { top: 20, right: 20, bottom: 50, left: 100 };
-            const width = 600 - margin.left - margin.right;
-            const height = 300 - margin.top - margin.bottom;
-
-            svg.attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
-               .attr("width", "100%")
-               .attr("height", "100%");
-
-            const g = svg.append("g")
-                .attr("transform", `translate(${margin.left},${margin.top})`);
-
-            // 3. Scale (Barre Orizzontali)
-            const x = d3.scaleLinear()
-                .domain([0, d3.max(data, d => d.totalQuantity) || 100])
-                .nice()
-                .range([0, width]);
-
-            const y = d3.scaleBand()
-                .domain(data.map(d => d.customerName))
-                .range([0, height])
-                .padding(0.2);
-
-            // 4. Assi
-            g.append("g")
-                .attr("transform", `translate(0,${height})`)
-                .call(d3.axisBottom(x).tickFormat(d => `${d} g`));
-
-            g.append("g")
-                .call(d3.axisLeft(y));
-
-            // 5. Grafico a Barre
-            g.selectAll(".bar")
-                .data(data)
-                .enter().append("rect")
-                .attr("class", "bar")
-                .attr("x", 0)
-                .attr("y", d => y(d.customerName))
-                .attr("width", d => x(d.totalQuantity))
-                .attr("height", y.bandwidth())
-                .attr("fill", "#6366f1") // Indigo
-                .attr("rx", 3);
-                
-            // Aggiungi etichette
-            g.selectAll(".label")
-                .data(data)
-                .enter().append("text")
-                .attr("class", "label")
-                .attr("x", d => x(d.totalQuantity) - 5)
-                .attr("y", d => y(d.customerName) + y.bandwidth() / 2)
-                .attr("dy", "0.35em")
-                .style("text-anchor", "end")
-                .text(d => formatQuantity(d.totalQuantity))
-                .style("fill", "white")
-                .style("font-size", "12px");
-        }
-
-        // ---------------------------------------------------
-        // 7. FUNZIONI MODAL E FORMS (CRUD)
-        // ---------------------------------------------------
-        
-        // CORREZIONE: Funzione di popolamento dei dropdown definita UNA sola volta.
-        function populateEntitySelects() {
-            const select = document.getElementById('transaction-entity-link');
-            // Assicurati che l'elemento esista prima di procedere
-            if (!select) return; 
-            
-            select.innerHTML = '';
-            
-            const type = document.getElementById('transaction-type').value;
-            const entities = type === 'Acquisto' ? suppliers : customers;
-            const placeholderText = type === 'Acquisto' ? 'Seleziona Fornitore' : 'Seleziona Cliente';
-            
-            select.innerHTML += `<option value="" disabled selected>${placeholderText}</option>`;
-            
-            entities.forEach(e => {
-                const name = e.soprannome || e.nomeCompleto;
-                select.innerHTML += `<option value="${e.id}">${name}</option>`;
-            });
-        }
-
-        // --- Transazioni ---
-        function openTransactionModal(type) {
-            const modal = document.getElementById('transaction-modal');
-            const title = document.getElementById('transaction-title');
-            const costGroup = document.getElementById('cost-ricavo-group');
-            const costInput = document.getElementById('transaction-cost');
-            const entityGroup = document.getElementById('entity-link-group');
-            const entityLabel = entityGroup.querySelector('label');
-            const entitySelect = document.getElementById('transaction-entity-link');
-
-            document.getElementById('transaction-form').reset();
-            document.getElementById('transaction-type').value = type;
-
-            if (type === 'Acquisto') {
-                title.textContent = 'Nuovo Acquisto';
-                costGroup.classList.remove('hidden');
-                costInput.placeholder = 'Costo in €';
-                entityGroup.classList.remove('hidden');
-                entityLabel.textContent = 'Fornitore';
-                entitySelect.setAttribute('required', 'required');
-                costInput.setAttribute('required', 'required');
-            } else if (type === 'Vendita') {
-                title.textContent = 'Nuova Vendita';
-                costGroup.classList.remove('hidden');
-                costInput.placeholder = 'Ricavo in €';
-                entityGroup.classList.remove('hidden');
-                entityLabel.textContent = 'Cliente';
-                entitySelect.setAttribute('required', 'required');
-                costInput.setAttribute('required', 'required');
-            } else { // Uso Personale
-                title.textContent = 'Uso Personale';
-                costGroup.classList.add('hidden');
-                costInput.removeAttribute('required');
-                entityGroup.classList.add('hidden');
-                entitySelect.removeAttribute('required');
-            }
-            
-            populateEntitySelects();
-            modal.classList.remove('hidden');
-        }
-
-        function closeTransactionModal() {
-            document.getElementById('transaction-modal').classList.add('hidden');
-        }
-
-        async function handleTransaction(event) {
-            event.preventDefault();
-            if (!isAuthReady) return console.error("Autenticazione non pronta.");
-
-            const type = document.getElementById('transaction-type').value;
-            const quantity = parseFloat(document.getElementById('transaction-quantity').value);
-            const costElement = document.getElementById('transaction-cost');
-            const cost = costElement.required ? parseFloat(costElement.value) : 0;
-            const entityIdElement = document.getElementById('transaction-entity-link');
-            const entityId = entityIdElement.required ? entityIdElement.value : null;
-
-            if (isNaN(quantity) || (costElement.required && isNaN(cost))) {
-                console.error("Valori non validi.");
-                return;
-            }
-            
-            // Check inventario (semplificato: non impediamo la vendita, ma avvertiamo)
-            if ((type === 'Vendita' || type === 'Uso Personale') && quantity > riceInventory) {
-                console.warn(`Attenzione: La quantità supera l'inventario disponibile (${formatQuantity(riceInventory)}).`);
-            }
-
-            const newTransaction = {
-                tipo: type,
-                quantita: quantity,
-                costo: cost, // Usiamo 'costo' per tutti (costo negativo per Acquisto, positivo per Vendita)
-                linkEntita: entityId,
-                data: new Date().toISOString(),
-                // Campi calcolati in app, non salvati: costoUnitario, ricavoUnitario.
-            };
-
-            try {
-                const colRef = collection(db, getCollectionPath(TRANSAZIONI_COLLECTION));
-                await addDoc(colRef, newTransaction);
-                closeTransactionModal();
-            } catch (error) {
-                console.error("Errore nell'aggiunta della transazione:", error);
-            }
-        }
-
-        // --- Fornitori (CRUD) ---
-        function showSupplierModal(docId = null) {
-            document.getElementById('supplier-form').reset();
-            document.getElementById('supplier-doc-id').value = docId || '';
-
-            if (docId) {
-                const supplier = suppliers.find(s => s.id === docId);
-                if (supplier) {
-                    document.getElementById('supplier-name').value = supplier.nomeCompleto || '';
-                    document.getElementById('supplier-alias').value = supplier.soprannome || '';
-                    document.getElementById('supplier-phone').value = supplier.numeroTelefono || '';
-                    document.getElementById('supplier-contact-method').value = supplier.metodoContatto || 'WhatsApp';
-                    document.getElementById('supplier-payment-method').value = supplier.metodoPagamento || 'Contanti';
-                }
-            }
-
-            document.getElementById('supplier-modal').classList.remove('hidden');
-        }
-        
-        function closeSupplierModal() {
-             document.getElementById('supplier-modal').classList.add('hidden');
-        }
-
-        async function handleSupplier(event) {
-            event.preventDefault();
-            if (!isAuthReady) return console.error("Autenticazione non pronta.");
-
-            const docId = document.getElementById('supplier-doc-id').value;
-            const supplierData = {
-                nomeCompleto: document.getElementById('supplier-name').value,
-                soprannome: document.getElementById('supplier-alias').value,
-                numeroTelefono: document.getElementById('supplier-phone').value,
-                metodoContatto: document.getElementById('supplier-contact-method').value,
-                metodoPagamento: document.getElementById('supplier-payment-method').value,
-                immagineProfilo: 'placeholder_url' // Mock data
-            };
-
-            try {
-                if (docId) {
-                    const docRef = doc(db, getCollectionPath(FORNITORI_COLLECTION), docId);
-                    await setDoc(docRef, supplierData, { merge: true });
-                } else {
-                    const colRef = collection(db, getCollectionPath(FORNITORI_COLLECTION));
-                    await addDoc(colRef, supplierData);
-                }
-                closeSupplierModal();
-            } catch (error) {
-                console.error("Errore nel salvataggio del fornitore:", error);
-            }
-        }
-        
-        // --- Clienti (CRUD - Logica Identica a Fornitori) ---
-        function showCustomerModal(docId = null) {
-            document.getElementById('customer-form').reset();
-            document.getElementById('customer-doc-id').value = docId || '';
-
-            if (docId) {
-                const customer = customers.find(c => c.id === docId);
-                if (customer) {
-                    document.getElementById('customer-name').value = customer.nomeCompleto || '';
-                    document.getElementById('customer-alias').value = customer.soprannome || '';
-                    document.getElementById('customer-phone').value = customer.numeroTelefono || '';
-                    document.getElementById('customer-contact-method').value = customer.metodoContatto || 'WhatsApp';
-                    document.getElementById('customer-payment-method').value = customer.metodoPagamento || 'Contanti';
-                }
-            }
-
-            document.getElementById('customer-modal').classList.remove('hidden');
-        }
-
-        function closeCustomerModal() {
-             document.getElementById('customer-modal').classList.add('hidden');
-        }
-
-        async function handleCustomer(event) {
-            event.preventDefault();
-            if (!isAuthReady) return console.error("Autenticazione non pronta.");
-
-            const docId = document.getElementById('customer-doc-id').value;
-            const customerData = {
-                nomeCompleto: document.getElementById('customer-name').value,
-                soprannome: document.getElementById('customer-alias').value,
-                numeroTelefono: document.getElementById('customer-phone').value,
-                metodoContatto: document.getElementById('customer-contact-method').value,
-                metodoPagamento: document.getElementById('customer-payment-method').value,
-                immagineProfilo: 'placeholder_url' // Mock data
-            };
-
-            try {
-                if (docId) {
-                    const docRef = doc(db, getCollectionPath(CLIENTI_COLLECTION), docId);
-                    await setDoc(docRef, customerData, { merge: true });
-                } else {
-                    const colRef = collection(db, getCollectionPath(CLIENTI_COLLECTION));
-                    await addDoc(colRef, customerData);
-                }
-                closeCustomerModal();
-            } catch (error) {
-                console.error("Errore nel salvataggio del cliente:", error);
-            }
-        }
-        
-        // ---------------------------------------------------
-        // 8. FUNZIONI GEMINI API (Pianificatore Scorte)
-        // ---------------------------------------------------
-
-        // Helper per gestione errori e backoff (necessario per le API calls)
-        async function exponentialBackoffFetch(url, options, maxRetries = 5, delay = 1000) {
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (response.status !== 429) { // Non è un errore di Rate Limit
-                        return response;
-                    }
-                    console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
-                } catch (error) {
-                    if (i === maxRetries - 1) throw error;
-                    console.error(`Fetch attempt failed: ${error.message}. Retrying...`);
-                }
-                await new Promise(resolve => setTimeout(resolve, delay));
-                delay *= 2;
-            }
-            throw new Error("Max retries exceeded.");
-        }
-
-        async function handleStockPlanner() {
-            const modalContent = document.getElementById('stock-planner-result-content');
-            
-            if (monthlyConsumption === 0) {
-                modalContent.innerHTML = `<p class="text-center text-yellow-600 font-semibold">
-                    Non ci sono abbastanza dati di Vendita o Uso Personale per calcolare il consumo medio.
-                    Per un suggerimento accurato, registra almeno un paio di transazioni di Vendita/Uso Personale.
-                </p>`;
-                return;
-            }
-
-            const safetyStockDays = 10; // Un buffer di 10 giorni
-            const dailyConsumptionRate = monthlyConsumption / 30.44;
-            const safetyStock = dailyConsumptionRate * safetyStockDays;
-            const inventoryDaysLeft = riceInventory > 0 ? (riceInventory / dailyConsumptionRate) : 0;
-            const isCritical = riceInventory <= safetyStock;
-            const daysUntilReorder = inventoryDaysLeft - safetyStockDays;
-            
-            const actionRequired = isCritical ? "azione IMMEDIATA" : "monitoraggio";
-
-            const stockDetails = {
-                inventario_attuale_g: riceInventory,
-                consumo_medio_mensile_g: monthlyConsumption,
-                giorni_di_copertura_rimanenti: inventoryDaysLeft,
-                quantita_riordino_suggerita_g: monthlyConsumption * 1.5, // Suggerisci 1.5 mesi di scorta
-                fornitori_disponibili: suppliers.map(s => s.nomeCompleto).join(', ') || "Nessun fornitore registrato"
-            };
-
-            const systemPrompt = `Sei un esperto di pianificazione scorte (Inventory Planner). Analizza i dati forniti per determinare lo stato delle scorte di riso. La tua unica funzione è fornire un'analisi concisa (massimo 3 paragrafi) che risponda a due domande: 1. Lo stato è critico e quanto tempo (giorni) manca prima di raggiungere il livello di scorta di sicurezza? 2. Qual è la quantità di riordino suggerita in base al consumo medio mensile per coprire 1.5 mesi? La risposta deve essere in italiano e non deve contenere grounding o citazioni web.`;
-            const userQuery = `Analizza questa situazione di inventario per chicchi di riso:\nInventario attuale: ${stockDetails.inventario_attuale_g} grammi.\nConsumo medio mensile (Vendite + Uso Personale): ${stockDetails.consumo_medio_mensile_g.toFixed(0)} grammi.\nScorta di sicurezza: ${safetyStockDays} giorni di consumo (${formatQuantity(safetyStock)}).\nAzioni richieste: ${actionRequired}.\nFornitori registrati: ${stockDetails.fornitori_disponibili}`;
-
-            modalContent.innerHTML = `<p class="text-center text-indigo-600 font-bold flex items-center justify-center"><div class="spinner"></div> Analisi Scorte in corso...</p>`;
-
-            try {
-                const response = await exponentialBackoffFetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: userQuery }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] }
-                        // Non usiamo tools: google_search, perché l'analisi è solo interna
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Errore nella generazione dell'analisi AI.";
-
-                const headerColor = isCritical ? 'text-red-600' : (inventoryDaysLeft < 30 ? 'text-orange-500' : 'text-green-600');
-                const daysLeftText = isCritical ? `**SCORTA CRITICA: Solo ${formatQuantity(riceInventory)} rimanenti!**` : `Hai copertura per circa ${inventoryDaysLeft.toFixed(1)} giorni.`;
-                const reorderCall = isCritical ? `**AZIONE IMMEDIATA:** Contatta i fornitori. Quantità suggerita: ${formatQuantity(stockDetails.quantita_riordino_suggerita_g)}.` : `Livello scorta di sicurezza (copertura 10 giorni): ${formatCurrency(safetyStock)}. Nessun riordino urgente richiesto.`;
-                
-                // Formatta l'output finale
-                modalContent.innerHTML = `
-                    <div class="space-y-4">
-                        <h4 class="text-xl font-bold ${headerColor}">Riepilogo Scorte Attuale:</h4>
-                        <ul class="list-disc list-inside space-y-1 text-gray-700">
-                            <li>Inventario: <span class="font-bold">${formatQuantity(riceInventory)}</span></li>
-                            <li>Consumo Medio Mensile: <span class="font-bold">${formatQuantity(monthlyConsumption)}</span></li>
-                            <li>Giorni di Copertura Totale: <span class="font-bold">${inventoryDaysLeft.toFixed(1)} giorni</span></li>
-                        </ul>
-                        <div class="border-t border-gray-300 pt-4">
-                           <p class="text-lg font-semibold ${headerColor} mb-2">${daysLeftText}</p>
-                           <p class="text-lg font-semibold text-indigo-700">${reorderCall}</p>
-                        </div>
-                        <div class="border-t border-gray-300 pt-4">
-                           <h4 class="text-md font-bold text-gray-800">Analisi e Suggerimenti AI:</h4>
-                           <div class="prose max-w-none text-gray-700 mt-2">${text}</div>
-                        </div>
-                    </div>
-                `;
-
-            } catch (error) {
-                console.error("Errore chiamata Gemini API:", error);
-                modalContent.innerHTML = `<p class="text-red-500">Si è verificato un errore durante l'analisi AI. Riprova più tardi. (Errore Gemini: Chiave non valida o utilizzo esaurito).</p>`;
-            }
-        }
-
-        function openStockPlannerModal() {
-            document.getElementById('stock-planner-modal').classList.remove('hidden');
-            handleStockPlanner(); // Avvia l'analisi non appena il modal si apre
-        }
-
-        function closeStockPlannerModal() {
-            document.getElementById('stock-planner-modal').classList.add('hidden');
-        }
-
-
-        // ---------------------------------------------------
-        // 9. AVVIO APPLICAZIONE
-        // ---------------------------------------------------
-
-
-        window.showSection = showSection;
-        window.openTransactionModal = openTransactionModal;
-        window.closeTransactionModal = closeTransactionModal;
-        window.handleTransaction = handleTransaction;
-        window.showSupplierModal = showSupplierModal;
-        window.closeSupplierModal = closeSupplierModal;
-        window.handleSupplier = handleSupplier;
-        window.showCustomerModal = showCustomerModal;
-        window.closeCustomerModal = closeCustomerModal;
-        window.handleCustomer = handleCustomer;
-        
-        // Funzioni Gemini (Aggiornate)
-        window.openStockPlannerModal = openStockPlannerModal;
-        window.closeStockPlannerModal = closeStockPlannerModal;
-        
-        initFirebase();
-    </script>
+    <div id="app" class="min-h-screen flex flex-col items-center p-4 pb-20">
+        
+        <header class="w-full max-w-4xl mb-6 bg-white shadow-lg rounded-xl p-4 flex justify-between items-center">
+            <h1 class="text-3xl font-bold text-rice">🍚 RisoTrack</h1>
+            <div id="auth-status" class="text-sm text-gray-600">
+                <span id="user-id-display" class="font-mono bg-gray-100 p-1 rounded" title="ID Utente Completo (per debug)">Caricamento utente...</span>
+            </div>
+        </header>
+
+        <div id="loading" class="text-center p-8">
+            <div class="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-gray-500">Inizializzazione Firebase e caricamento dati...</p>
+        </div>
+
+        <main id="main-content" class="w-full max-w-4xl hidden">
+            
+            <section id="dashboard" class="space-y-6">
+                
+                <h2 class="text-2xl font-semibold text-gray-800">Dashboard & Banche in Tempo Reale</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    <div class="bg-white shadow-2xl rounded-xl p-6 border-t-4 border-yellow-500">
+                        <h3 class="text-xl font-medium text-gray-500">Banca del Riso (Disponibile)</h3>
+                        <p id="rice-inventory" class="text-4xl font-extrabold mt-2 text-rice">0 g</p>
+                        <p class="text-sm text-gray-400 mt-1">Acquisti - Vendite - Uso Personale</p>
+                    </div>
+
+                    <div class="bg-white shadow-2xl rounded-xl p-6 border-t-4 border-green-500">
+                        <h3 class="text-xl font-medium text-gray-500">Banca Finanziaria (Netto)</h3>
+                        <p id="financial-net" class="text-4xl font-extrabold mt-2 text-gray-800">0,00 €</p>
+                        <p class="text-sm text-gray-400 mt-1">Ricavi Totali - Costi Totali</p>
+                    </div>
+                </div>
+
+                <div class="bg-white shadow-xl rounded-xl p-6">
+                    <h3 class="text-xl font-medium text-gray-700 mb-4">Analisi e Riordino Scorte</h3>
+                    <div id="profit-analysis" class="text-center p-8 bg-gray-50 rounded-lg">
+                        <p id="average-cost-display" class="font-semibold text-lg text-gray-600">Costo Unitario Medio Storico: N/D</p>
+                        <p class="mt-4 text-gray-500">La sezione Analisi dettagliata si trova nel tab dedicato in basso.</p>
+                        <div class="h-12 bg-gray-200 rounded mt-4"></div>
+                        
+                        <button onclick="openStockPlannerModal()" class="mt-6 p-3 w-full bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition shadow-md flex items-center justify-center font-bold">
+                            📦 Pianificatore Scorte e Riordino (AI)
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bg-white shadow-xl rounded-xl p-6">
+                    <h3 class="text-xl font-medium text-gray-700 mb-4">Azioni Rapide</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <button onclick="openTransactionModal('Acquisto')" class="p-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-md">
+                            + Acquisto
+                        </button>
+                        <button onclick="openTransactionModal('Vendita')" class="p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition shadow-md">
+                            + Vendita
+                        </button>
+                        <button onclick="openTransactionModal('Uso Personale')" class="p-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition shadow-md">
+                            Uso Personale
+                        </button>
+                        <button onclick="showSection('transactions-list')" class="p-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition shadow-md">
+                            Storico Trans.
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+            
+            <section id="suppliers-list" class="hidden mt-8">
+                <h2 class="text-2xl font-semibold text-rice mb-4">Fornitori</h2>
+                <button onclick="showSupplierModal()" class="mb-4 p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">+ Nuovo Fornitore</button>
+                <div id="suppliers-container" class="space-y-3"></div>
+            </section>
+            
+            <section id="customers-list" class="hidden mt-8">
+                <h2 class="text-2xl font-semibold text-rice mb-4">Clienti</h2>
+                <button onclick="showCustomerModal()" class="mb-4 p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">+ Nuovo Cliente</button>
+                <div id="customers-container" class="space-y-3"></div>
+            </section>
+
+            <section id="transactions-list" class="hidden mt-8">
+                <h2 class="text-2xl font-semibold text-rice mb-4">Storico Transazioni</h2>
+                <div id="transactions-container" class="space-y-3"></div>
+            </section>
+            
+            <section id="analytics-section" class="hidden mt-8">
+                <h2 class="text-2xl font-semibold text-rice mb-4">Analisi Dati e Grafici</h2>
+                
+                <div class="space-y-8">
+                    
+                    <div class="bg-white shadow-xl rounded-xl p-6">
+                        <h3 class="text-xl font-medium text-gray-700 mb-4">Flusso di Riso (Acquisti vs Vendite per Mese)</h3>
+                        <div id="flow-chart-container" class="chart-container">
+                            <svg id="flow-chart" class="chart-svg"></svg>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-2">Quantità aggregata in grammi per mese. Scorri orizzontalmente se necessario.</p>
+                    </div>
+
+                    <div class="bg-white shadow-xl rounded-xl p-6">
+                        <h3 class="text-xl font-medium text-gray-700 mb-4">Top 5 Clienti per Quantità Acquistata (g)</h3>
+                        <div id="customer-chart-container" class="chart-container">
+                             <svg id="customer-chart" class="chart-svg"></svg>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-2">Visualizzazione dei clienti con il volume di acquisto più alto.</p>
+                    </div>
+                    
+                </div>
+            </section>
+
+        </main>
+        
+        <nav class="fixed bottom-0 w-full max-w-4xl bg-white shadow-2xl rounded-t-xl z-10 p-2 border-t border-gray-200">
+            <div class="flex justify-around text-gray-600 font-medium">
+                <button onclick="showSection('dashboard')" class="flex flex-col items-center p-2 text-indigo-600">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
+                    <span class="text-xs mt-1">Home</span>
+                </button>
+                <button onclick="showSection('suppliers-list')" class="flex flex-col items-center p-2 hover:text-indigo-600 transition">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18H4v-1a4 4 0 014-4h4a4 4 0 014 4v1z"/></svg>
+                    <span class="text-xs mt-1">Fornitori</span>
+                </button>
+                <button onclick="showSection('customers-list')" class="flex flex-col items-center p-2 hover:text-indigo-600 transition">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.662.07-1a6.958 6.958 0 00-1.28-4.227 4.989 4.989 0 01-2.685.11 4.989 4.989 0 01-2.684-.11C7.03 12.773 6.904 14.168 7 15.75L7 17h6.93z"/></svg>
+                    <span class="text-xs mt-1">Clienti</span>
+                </button>
+                <button onclick="showSection('analytics-section')" class="flex flex-col items-center p-2 hover:text-indigo-600 transition">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM4 10a6 6 0 016-6v6H4zm8 0a6 6 0 00-6 6v-6h6z" clip-rule="evenodd" /></svg>
+                    <span class="text-xs mt-1">Analisi</span>
+                </button>
+                <button onclick="showSection('transactions-list')" class="flex flex-col items-center p-2 hover:text-indigo-600 transition">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm10 2a2 2 0 012 2v2a2 2 0 01-2 2h-4a2 2 0 01-2-2V8a2 2 0 012-2h4z"/></svg>
+                    <span class="text-xs mt-1">Storico</span>
+                </button>
+            </div>
+        </nav>
+
+
+        <div id="transaction-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                <h3 id="transaction-title" class="text-2xl font-bold mb-4 text-rice">Nuova Transazione</h3>
+                <form id="transaction-form" onsubmit="handleTransaction(event)">
+                    
+                    <input type="hidden" id="transaction-type">
+                    
+                    <div class="mb-4">
+                        <label for="transaction-quantity" class="block text-sm font-medium text-gray-700">Quantità (g)</label>
+                        <input type="number" id="transaction-quantity" min="1" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
+                    </div>
+
+                    <div id="cost-ricavo-group" class="mb-4 hidden">
+                        <label for="transaction-cost" class="block text-sm font-medium text-gray-700">Costo/Ricavo (€)</label>
+                        <input type="number" id="transaction-cost" step="0.01" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
+                    </div>
+
+                    <div id="entity-link-group" class="mb-4 hidden">
+                        <label for="transaction-entity-link" class="block text-sm font-medium text-gray-700"></label>
+                        <select id="transaction-entity-link" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></select>
+                    </div>
+
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeTransactionModal()" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition">Annulla</button>
+                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">Registra</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="supplier-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                <h3 class="text-2xl font-bold mb-4 text-rice">Gestione Fornitore</h3>
+                <form id="supplier-form" onsubmit="handleSupplier(event)">
+                    <input type="hidden" id="supplier-doc-id">
+                    
+                    <div class="mb-4"><label for="supplier-name" class="block text-sm font-medium text-gray-700">Nome/Ragione Sociale</label><input type="text" id="supplier-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
+                    <div class="mb-4"><label for="supplier-alias" class="block text-sm font-medium text-gray-700">Soprannome</label><input type="text" id="supplier-alias" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
+                    <div class="mb-4"><label for="supplier-phone" class="block text-sm font-medium text-gray-700">Numero di Telefono</label><input type="tel" id="supplier-phone" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
+                    
+                    <div class="mb-4">
+                        <label for="supplier-contact-method" class="block text-sm font-medium text-gray-700">Metodo di Contatto</label>
+                        <select id="supplier-contact-method" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
+                            <option value="WhatsApp">WhatsApp</option>
+                            <option value="Telegram">Telegram</option>
+                            <option value="Instagram DM">Instagram DM</option>
+                            <option value="Teleguard">Teleguard</option>
+                            <option value="Email">Email</option>
+                            <option value="Telefono">Telefono</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="supplier-payment-method" class="block text-sm font-medium text-gray-700">Metodo di Pagamento Previsto</label>
+                        <select id="supplier-payment-method" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
+                            <option value="Contanti">Contanti</option>
+                            <option value="Satispay">Satispay</option>
+                            <option value="Bancomat/Carta">Bancomat/Carta</option>
+                            <option value="Bonifico">Bonifico</option>
+                            <option value="Crypto">Crypto</option>
+                            <option value="Altro">Altro</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeSupplierModal()" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition">Annulla</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Salva Fornitore</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div id="customer-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                <h3 class="text-2xl font-bold mb-4 text-rice">Gestione Cliente</h3>
+                <form id="customer-form" onsubmit="handleCustomer(event)">
+                    <input type="hidden" id="customer-doc-id">
+                    
+                    <div class="mb-4"><label for="customer-name" class="block text-sm font-medium text-gray-700">Nome Completo</label><input type="text" id="customer-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
+                    <div class="mb-4"><label for="customer-alias" class="block text-sm font-medium text-gray-700">Soprannome/Alias</label><input type="text" id="customer-alias" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
+                    <div class="mb-4"><label for="customer-phone" class="block text-sm font-medium text-gray-700">Numero di Telefono</label><input type="tel" id="customer-phone" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border"></div>
+                    
+                    <div class="mb-4">
+                        <label for="customer-contact-method" class="block text-sm font-medium text-gray-700">Metodo di Contatto</label>
+                        <select id="customer-contact-method" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
+                            <option value="WhatsApp">WhatsApp</option>
+                            <option value="Telegram">Telegram</option>
+                            <option value="Instagram DM">Instagram DM</option>
+                            <option value="Teleguard">Teleguard</option>
+                            <option value="Email">Email</option>
+                            <option value="Telefono">Telefono</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="customer-payment-method" class="block text-sm font-medium text-gray-700">Metodo di Pagamento Utilizzato</label>
+                        <select id="customer-payment-method" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border">
+                            <option value="Contanti">Contanti</option>
+                            <option value="Satispay">Satispay</option>
+                            <option value="Bancomat/Carta">Bancomat/Carta</option>
+                            <option value="Bonifico">Bonifico</option>
+                            <option value="Crypto">Crypto</option>
+                            <option value="Altro">Altro</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeCustomerModal()" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition">Annulla</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Salva Cliente</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div id="stock-planner-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
+                <h3 class="text-2xl font-bold mb-4 text-pink-600">📦 Pianificatore Scorte e Riordino (AI)</h3>
+                
+                <div id="stock-planner-result-content" class="mt-4 p-4 bg-gray-50 rounded-lg max-h-96 overflow-y-auto">
+                    <p class="text-center text-gray-500">Analisi in attesa...</p>
+                </div>
+
+                <div class="flex justify-end mt-4">
+                    <button type="button" onclick="closeStockPlannerModal()" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition">Chiudi</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, setDoc, deleteDoc, onSnapshot, collection, query, orderBy, where, runTransaction, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =======================================================
+        // ** CONFIGURAZIONE FIREBASE MANUALE (Valori forniti dall'utente) **
+        // =======================================================
+
+        const firebaseConfig = {
+            // L'API Key del tuo progetto RisoTrack-Progetto
+            apiKey: "AIzaSyDxdN_63pt-Y-3XopQU96IuqOPrPQBq2AI", 
+            // Il dominio di autenticazione
+            authDomain: "risotrack-progetto.firebaseapp.com", 
+            // L'ID del tuo progetto (usato per i percorsi Firestore)
+            projectId: "risotrack-progetto", 
+            // Lo Storage Bucket
+            storageBucket: "risotrack-progetto.firebasestorage.app", 
+            // Il Messaging Sender ID
+            messagingSenderId: "5799605184", 
+            // L'App ID (usato per i percorsi Firestore)
+            appId: "1:5799605184:web:d2722c3efb7166fc994e25",
+        };
+
+        const appId = firebaseConfig.projectId; // Usiamo il Project ID come App ID per il percorso Firestore
+        const initialAuthToken = null; // Manteniamo a null
+        
+        // =======================================================
+        // ** FINE CONFIGURAZIONE MANUALE FIREBASE **
+        // =======================================================
+
+        // =======================================================
+        // ** CONFIGURAZIONE GEMINI (CHIAVE AGGIORNATA) **
+        // =======================================================
+        const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
+        const apiKey = "AIzaSyAvZFz4G6AokuDPH7bqXQxNlxq13ec0GG4"; // <--- LA TUA CHIAVE API ORA E' QUI
+        // =======================================================
+
+        let app, db, auth;
+        let userId = null;
+        let isAuthReady = false;
+        
+        // Collezioni private (MANDATORIO)
+        const FORNITORI_COLLECTION = 'fornitori';
+        const CLIENTI_COLLECTION = 'clienti';
+        const TRANSAZIONI_COLLECTION = 'transazioni';
+
+        // Variabili di Stato Globali
+        let suppliers = [];
+        let customers = [];
+        let transactions = [];
+        let riceInventory = 0;
+        let financialNet = 0;
+        let totalPurchasedQuantity = 0;
+        let totalPurchasedCost = 0;
+        let averageUnitCost = 0;
+        let monthlyConsumption = 0; // Nuovo campo per il consumo medio
+
+        // Funzione per formattare la valuta
+        const formatCurrency = (value) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+        // Funzione per formattare la quantità (grammi)
+        const formatQuantity = (value) => `${value.toLocaleString('it-IT', { maximumFractionDigits: 0 })} g`;
+
+        // Utility per generare un alias carino
+        function createRiceAlias(uid) {
+            const riceNames = ["Arborio", "Carnaroli", "Basmati", "Jasmine", "Venere", "Ribe", "Selvatico", "Integrale", "Sushirice", "Originario"];
+            // Genera un indice numerico deterministico
+            let sum = 0;
+            for (let i = 0; i < 8; i++) { // Usa solo i primi 8 caratteri per una maggiore uniformità
+                sum += uid.charCodeAt(i);
+            }
+            const nameIndex = sum % riceNames.length;
+            
+            // Usa le ultime 4 cifre esadecimali del UID come suffisso
+            const suffix = uid.slice(-4).toUpperCase();
+            
+            return `${riceNames[nameIndex]}-${suffix}`;
+        }
+        
+        // ---------------------------------------------------
+        // 1. INIZIALIZZAZIONE FIREBASE E AUTENTICAZIONE
+        // ---------------------------------------------------
+
+        async function initFirebase() {
+            try {
+                // setLogLevel('Debug');
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // Imposta la persistenza su locale
+                await setPersistence(auth, browserLocalPersistence);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Chiamiamo onAuthStateChanged qui, dopo che auth è stato inizializzato.
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        const userAlias = createRiceAlias(userId); // Genera l'alias
+                        document.getElementById('user-id-display').textContent = `Utente: ${userAlias}`;
+                        document.getElementById('user-id-display').title = `ID Completo: ${userId}`; // Tooltip con l'ID intero
+                        isAuthReady = true;
+                        
+                        // Avvia i listener solo dopo che l'autenticazione è pronta
+                        startFirestoreListeners();
+                        
+                        document.getElementById('loading').classList.add('hidden');
+                        document.getElementById('main-content').classList.remove('hidden');
+                        showSection('dashboard'); // Mostra la dashboard come sezione iniziale
+
+                    } else {
+                        console.log("Nessun utente autenticato. Tentativo di accesso anonimo...");
+                    }
+                });
+
+            } catch (error) {
+                console.error("Errore nell'inizializzazione o nell'autenticazione di Firebase:", error);
+                // MESSAGGIO DI ERRORE DETTAGLIATO PER IL BUG auth/configuration-not-found
+                document.getElementById('loading').innerHTML = `
+                    <p class="text-red-500 font-bold text-lg">Errore di Connessione al Database (Firebase):</p>
+                    <p class="text-gray-700 mt-2">Errore: ${error.message}</p>
+                    <p class="text-gray-700 mt-4 p-3 bg-red-100 rounded-lg border border-red-300">
+                        L'errore '${error.code}' indica che Firebase Auth non riesce a trovare la configurazione. 
+                        **Per risolvere questo problema, devi andare nella console Firebase**, sezione 
+                        **Authentication**, tab **Sign-in method**, e assicurarti che il metodo di accesso 
+                        **Anonimo** sia **Abilitato** (lo usiamo per autenticarti automaticamente).
+                        Inoltre, controlla le **Regole di Sicurezza** di Firestore.
+                    </p>
+                `;
+            }
+        }
+
+        // ---------------------------------------------------
+        // 2. FUNZIONI DI BASE PER FIRESTORE
+        // ---------------------------------------------------
+
+        const getCollectionPath = (collectionName) => {
+            if (!userId) {
+                console.error("UserID non disponibile.");
+                return null;
+            }
+            return `artifacts/${appId}/users/${userId}/${collectionName}`;
+        };
+
+        // ---------------------------------------------------
+        // 3. LOGICA DI CALCOLO E AGGIORNAMENTO UI
+        // ---------------------------------------------------
+
+        function calculateMonthlyConsumption() {
+            const consumption = transactions.filter(t => t.tipo === 'Vendita' || t.tipo === 'Uso Personale');
+            
+            if (consumption.length === 0) {
+                monthlyConsumption = 0;
+                return;
+            }
+
+            const now = new Date();
+            const oldestDate = consumption.reduce((min, t) => {
+                const date = new Date(t.data);
+                return date < min ? date : min;
+            }, now);
+            
+            const timeDiff = now.getTime() - oldestDate.getTime();
+            const totalDays = timeDiff / (1000 * 3600 * 24);
+            
+            if (totalDays < 1) { // Consumo inferiore a un giorno
+                 monthlyConsumption = d3.sum(consumption, d => parseFloat(d.quantita) || 0) * 30; // Stima a 30 giorni
+                 return;
+            }
+
+            const totalConsumption = d3.sum(consumption, d => parseFloat(d.quantita) || 0);
+            
+            // Calcola il consumo medio giornaliero e lo moltiplica per 30.44 (media giorni in un mese)
+            const dailyConsumption = totalConsumption / totalDays;
+            monthlyConsumption = dailyConsumption * 30.44;
+        }
+
+
+        function updateCalculations() {
+            let totalAcquisto = 0;
+            let totalVendita = 0;
+            let totalUsoPersonale = 0;
+            let totalCosti = 0;
+            let totalRicavi = 0;
+            
+            totalPurchasedQuantity = 0;
+            totalPurchasedCost = 0;
+
+            transactions.forEach(t => {
+                const quantity = parseFloat(t.quantita) || 0;
+                const cost = parseFloat(t.costo) || 0; // Usiamo 'costo' per Acquisto e Ricavo per Vendita
+
+                if (t.tipo === 'Acquisto') {
+                    totalAcquisto += quantity;
+                    totalCosti += cost;
+                    totalPurchasedQuantity += quantity;
+                    totalPurchasedCost += cost;
+                } else if (t.tipo === 'Vendita') {
+                    totalVendita += quantity;
+                    totalRicavi += cost;
+                } else if (t.tipo === 'Uso Personale') {
+                    totalUsoPersonale += quantity;
+                }
+            });
+
+            // Calcoli Principali
+            riceInventory = totalAcquisto - totalVendita - totalUsoPersonale;
+            financialNet = totalRicavi - totalCosti;
+            averageUnitCost = totalPurchasedQuantity > 0 ? totalPurchasedCost / totalPurchasedQuantity : 0;
+            
+            // Calcolo Consumo Medio
+            calculateMonthlyConsumption();
+
+            // Aggiornamento UI
+            document.getElementById('rice-inventory').textContent = formatQuantity(riceInventory);
+            
+            const financialDisplay = document.getElementById('financial-net');
+            financialDisplay.textContent = formatCurrency(financialNet);
+            financialDisplay.className = financialNet >= 0 ? 'text-4xl font-extrabold mt-2 text-green-600' : 'text-4xl font-extrabold mt-2 text-red-600';
+            
+            // Analisi
+            const costDisplay = document.getElementById('average-cost-display');
+            costDisplay.textContent = averageUnitCost > 0 
+                ? `Costo Unitario Medio Storico: ${formatCurrency(averageUnitCost)}/g`
+                : 'Costo Unitario Medio Storico: N/D (Nessun acquisto registrato)';
+
+            renderTransactionList();
+            renderSuppliersList();
+            renderCustomersList();
+            // renderAnalytics() non viene chiamato qui per evitare errori di D3 se non è il tab attivo, verrà chiamato in showSection.
+        }
+
+        // ---------------------------------------------------
+        // 4. LISTENER FIRESTORE (Real-time)
+        // ---------------------------------------------------
+
+        function startFirestoreListeners() {
+            if (!isAuthReady) return;
+
+            // Listener Fornitori
+            const fornitoriQ = collection(db, getCollectionPath(FORNITORI_COLLECTION));
+            onSnapshot(fornitoriQ, (snapshot) => {
+                suppliers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                updateCalculations();
+                populateEntitySelects();
+            }, (error) => console.error("Errore listener Fornitori:", error));
+
+            // Listener Clienti
+            const clientiQ = collection(db, getCollectionPath(CLIENTI_COLLECTION));
+            onSnapshot(clientiQ, (snapshot) => {
+                customers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                updateCalculations();
+                populateEntitySelects();
+            }, (error) => console.error("Errore listener Clienti:", error));
+
+            // Listener Transazioni
+            const transazioniQ = collection(db, getCollectionPath(TRANSAZIONI_COLLECTION));
+            onSnapshot(transazioniQ, (snapshot) => {
+                transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Ordina per data decrescente (ordinamento in client-side per evitare problemi di indicizzazione)
+                transactions.sort((a, b) => new Date(b.data) - new Date(a.data));
+                updateCalculations(); // Ricalcola tutto ad ogni aggiornamento
+            }, (error) => console.error("Errore listener Transazioni:", error));
+        }
+
+        // ---------------------------------------------------
+        // 5. RENDERING E UI
+        // ---------------------------------------------------
+
+        function showSection(sectionId) {
+            document.querySelectorAll('#main-content section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(sectionId).classList.remove('hidden');
+            
+            // Se è la sezione analytics, forziamo il rendering dei grafici
+            if (sectionId === 'analytics-section') {
+                // CORREZIONE GRAFICI: Assicuriamo che updateCalculations sia stato chiamato
+                // e che i dati siano pronti prima di chiamare renderAnalytics.
+                renderAnalytics(); 
+            }
+
+            // Aggiorna lo stato della navigazione
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.classList.remove('text-indigo-600');
+                if (btn.onclick.toString().includes(`showSection('${sectionId}')`)) {
+                    btn.classList.add('text-indigo-600');
+                }
+            });
+        }
+        
+        function getEntityName(id, type) {
+            if (type === 'Acquisto') {
+                const supplier = suppliers.find(s => s.id === id);
+                return supplier ? (supplier.soprannome || supplier.nomeCompleto) : 'Fornitore Sconosciuto';
+            }
+            if (type === 'Vendita') {
+                const customer = customers.find(c => c.id === id);
+                return customer ? (customer.soprannome || customer.nomeCompleto) : 'Cliente Sconosciuto';
+            }
+            return '';
+        }
+
+        function renderTransactionList() {
+            const container = document.getElementById('transactions-container');
+            container.innerHTML = transactions.map(t => {
+                const isAcquisto = t.tipo === 'Acquisto';
+                const isVendita = t.tipo === 'Vendita';
+                const color = isAcquisto ? 'bg-red-100 border-red-400' : isVendita ? 'bg-green-100 border-green-400' : 'bg-yellow-100 border-yellow-400';
+                const entityName = getEntityName(t.linkEntita, t.tipo);
+                
+                let marginInfo = '';
+                if (isVendita && averageUnitCost > 0) {
+                    const costOfGoodsSold = (parseFloat(t.quantita) || 0) * averageUnitCost;
+                    const profitMargin = (parseFloat(t.costo) || 0) - costOfGoodsSold;
+                    marginInfo = `<p class="text-sm font-semibold mt-1 ${profitMargin >= 0 ? 'text-green-700' : 'text-red-700'}">Margine: ${formatCurrency(profitMargin)}</p>`;
+                }
+
+                return `
+                    <div class="p-4 rounded-xl shadow-md border-l-4 ${color} flex justify-between items-center">
+                        <div>
+                            <p class="text-lg font-bold text-gray-800">${t.tipo} (${formatQuantity(t.quantita)})</p>
+                            ${isAcquisto || isVendita ? `<p class="text-sm text-gray-600">${isAcquisto ? 'Costo' : 'Ricavo'}: <span class="font-bold">${formatCurrency(t.costo)}</span></p>` : `<p class="text-sm text-gray-600">Nessun impatto finanziario</p>`}
+                            ${marginInfo}
+                            ${entityName ? `<p class="text-xs text-gray-500 mt-1">${isAcquisto ? 'Fornitore' : 'Cliente'}: ${entityName}</p>` : ''}
+                        </div>
+                        <p class="text-xs text-gray-500">${new Date(t.data).toLocaleDateString('it-IT')}</p>
+                    </div>
+                `;
+            }).join('');
+            if (transactions.length === 0) container.innerHTML = '<p class="text-center text-gray-500 p-4">Nessuna transazione registrata.</p>';
+        }
+
+        function renderSuppliersList() {
+            const container = document.getElementById('suppliers-container');
+            container.innerHTML = suppliers.map(s => `
+                <div class="bg-white p-4 rounded-xl shadow flex justify-between items-center">
+                    <div>
+                        <p class="text-lg font-bold text-rice">${s.nomeCompleto} ${s.soprannome ? `(${s.soprannome})` : ''}</p>
+                        <p class="text-sm text-gray-500">Contatto: ${s.metodoContatto || 'N/D'} | Pagamento: ${s.metodoPagamento || 'N/D'}</p>
+                    </div>
+                    <button onclick="showSupplierModal('${s.id}')" class="ml-4 p-2 text-blue-500 hover:text-blue-700 transition">Modifica</button>
+                </div>
+            `).join('');
+            if (suppliers.length === 0) container.innerHTML = '<p class="text-center text-gray-500 p-4">Nessun fornitore registrato. Aggiungine uno!</p>';
+        }
+
+        function renderCustomersList() {
+            const container = document.getElementById('customers-container');
+            container.innerHTML = customers.map(c => `
+                <div class="bg-white p-4 rounded-xl shadow flex justify-between items-center">
+                    <div>
+                        <p class="text-lg font-bold text-rice">${c.nomeCompleto} ${c.soprannome ? `(${c.soprannome})` : ''}</p>
+                        <p class="text-sm text-gray-500">Contatto: ${c.metodoContatto || 'N/D'} | Pagamento: ${c.metodoPagamento || 'N/D'}</p>
+                    </div>
+                    <button onclick="showCustomerModal('${c.id}')" class="ml-4 p-2 text-blue-500 hover:text-blue-700 transition">Modifica</button>
+                </div>
+            `).join('');
+            if (customers.length === 0) container.innerHTML = '<p class="text-center text-gray-500 p-4">Nessun cliente registrato. Aggiungine uno!</p>';
+        }
+
+        // ---------------------------------------------------
+        // 6. LOGICA E RENDERING ANALITICA (D3.js)
+        // ---------------------------------------------------
+
+        function renderAnalytics() {
+            if (transactions.length === 0) {
+                 document.getElementById('flow-chart-container').innerHTML = '<p class="text-center text-gray-500 p-4">Nessun dato di transazione per l\'analisi.</p>';
+                 document.getElementById('customer-chart-container').innerHTML = '<p class="text-center text-gray-500 p-4">Nessun dato di vendita per l\'analisi clienti.</p>';
+                 return;
+            }
+
+            renderFlowChart();
+            renderCustomerChart();
+        }
+
+        // --- Grafico Flusso di Riso (Acquisti vs Vendite) ---
+        function renderFlowChart() {
+            const containerId = 'flow-chart';
+            const data = transactions.filter(t => t.tipo === 'Acquisto' || t.tipo === 'Vendita').map(t => ({
+                date: new Date(t.data),
+                type: t.tipo,
+                quantity: parseFloat(t.quantita) || 0
+            }));
+
+            // 1. Aggregazione per Mese
+            const monthlyData = d3.rollups(
+                data,
+                v => ({
+                    Acquisto: d3.sum(v, d => d.type === 'Acquisto' ? d.quantity : 0),
+                    Vendita: d3.sum(v, d => d.type === 'Vendita' ? d.quantity : 0)
+                }),
+                d => d3.timeFormat("%Y-%m")(d.date) // Chiave: Anno-Mese
+            ).map(([key, value]) => ({
+                month: d3.timeParse("%Y-%m")(key),
+                Acquisto: value.Acquisto,
+                Vendita: value.Vendita
+            })).sort((a, b) => a.month - b.month);
+
+            if (monthlyData.length === 0) {
+                d3.select(`#${containerId}`).select("svg").html('<p class="text-center text-gray-500 p-4">Nessun dato di Acquisto o Vendita nel periodo.</p>');
+                return;
+            }
+
+            // Trasforma per lo stacked/grouped chart
+            const series = ['Acquisto', 'Vendita'].map(key => ({
+                key: key,
+                values: monthlyData.map(d => ({ date: d.month, quantity: d[key], type: key }))
+            }));
+
+            // 2. Setup D3
+            d3.select(`#${containerId}`).select("svg").selectAll("*").remove(); // Pulisce il grafico precedente
+            const svg = d3.select(`#${containerId}`).select("svg");
+            const margin = { top: 20, right: 20, bottom: 50, left: 60 };
+            const containerWidth = document.getElementById('flow-chart-container').clientWidth;
+            const width = Math.max(600, monthlyData.length * 50) - margin.left - margin.right; // Larghezza dinamica
+            const height = 300 - margin.top - margin.bottom;
+
+            svg.attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+               .attr("width", "100%")
+               .attr("height", "100%"); // Rende SVG responsive
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // 3. Scale
+            const x = d3.scaleBand()
+                .domain(monthlyData.map(d => d.month))
+                .range([0, width])
+                .paddingInner(0.1);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(monthlyData, d => Math.max(d.Acquisto, d.Vendita)) || 100])
+                .nice()
+                .range([height, 0]);
+
+            const color = d3.scaleOrdinal()
+                .domain(['Acquisto', 'Vendita'])
+                .range(['#ef4444', '#10b981']);
+
+            // 4. Assi
+            const xAxis = d3.axisBottom(x)
+                .tickFormat(d3.timeFormat("%b %y")); // Formato Mese Anno
+
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(xAxis)
+                .selectAll("text")
+                    .style("text-anchor", "end")
+                    .attr("dx", "-.8em")
+                    .attr("dy", ".15em")
+                    .attr("transform", "rotate(-45)");
+
+            g.append("g")
+                .call(d3.axisLeft(y).tickFormat(d => `${d} g`));
+
+            // 5. Grafico a Barre
+            const barWidth = x.bandwidth() / series.length;
+
+            series.forEach((s, i) => {
+                g.selectAll(`.bar-${s.key}`)
+                    .data(s.values)
+                    .enter().append("rect")
+                    .attr("class", `bar bar-${s.key}`)
+                    .attr("x", d => x(d.date) + (i * barWidth))
+                    .attr("y", d => y(d.quantity))
+                    .attr("width", barWidth)
+                    .attr("height", d => height - y(d.quantity))
+                    .attr("fill", color(s.key))
+                    .attr("rx", 3); // Bordo arrotondato
+            });
+            
+            // 6. Legenda
+            const legend = g.selectAll(".legend")
+                .data(series)
+                .enter().append("g")
+                .attr("class", "legend")
+                .attr("transform", (d, i) => `translate(${i * 100}, ${-10})`);
+
+            legend.append("rect")
+                .attr("x", width - 18)
+                .attr("width", 18)
+                .attr("height", 18)
+                .attr("fill", d => color(d.key))
+                .attr("rx", 3);
+
+            legend.append("text")
+                .attr("x", width - 24)
+                .attr("y", 9)
+                .attr("dy", ".35em")
+                .style("text-anchor", "end")
+                .text(d => d.key)
+                .style("font-size", "12px");
+        }
+
+        // --- Grafico Performance Clienti ---
+        function renderCustomerChart() {
+            const containerId = 'customer-chart';
+            
+            // 1. Aggregazione per Cliente
+            const sales = transactions.filter(t => t.tipo === 'Vendita');
+            
+            const customerSales = d3.rollups(
+                sales,
+                v => d3.sum(v, d => parseFloat(d.quantita) || 0),
+                d => d.linkEntita // Chiave: ID Cliente
+            ).map(([customerId, totalQuantity]) => ({
+                customerId,
+                totalQuantity,
+                customerName: getEntityName(customerId, 'Vendita')
+            })).filter(d => d.customerName !== 'Cliente Sconosciuto'); // Filtra i clienti non identificati
+
+            if (customerSales.length === 0) {
+                d3.select(`#${containerId}`).select("svg").html('<p class="text-center text-gray-500 p-4">Nessun dato di vendita per l\'analisi clienti.</p>');
+                return;
+            }
+
+            // Ordina e prendi i Top 5 (e Bottom 5, se ce ne sono abbastanza)
+            customerSales.sort((a, b) => b.totalQuantity - a.totalQuantity);
+            const topCustomers = customerSales.slice(0, 5);
+            // Non visualizziamo i bottom 5 se i top 5 sono gli unici clienti. Semplifichiamo mostrando solo i top.
+            const data = topCustomers;
+
+            // 2. Setup D3
+            d3.select(`#${containerId}`).select("svg").selectAll("*").remove();
+            const svg = d3.select(`#${containerId}`).select("svg");
+            const margin = { top: 20, right: 20, bottom: 50, left: 100 };
+            const width = 600 - margin.left - margin.right;
+            const height = 300 - margin.top - margin.bottom;
+
+            svg.attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+               .attr("width", "100%")
+               .attr("height", "100%");
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // 3. Scale (Barre Orizzontali)
+            const x = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.totalQuantity) || 100])
+                .nice()
+                .range([0, width]);
+
+            const y = d3.scaleBand()
+                .domain(data.map(d => d.customerName))
+                .range([0, height])
+                .padding(0.2);
+
+            // 4. Assi
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x).tickFormat(d => `${d} g`));
+
+            g.append("g")
+                .call(d3.axisLeft(y));
+
+            // 5. Grafico a Barre
+            g.selectAll(".bar")
+                .data(data)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", 0)
+                .attr("y", d => y(d.customerName))
+                .attr("width", d => x(d.totalQuantity))
+                .attr("height", y.bandwidth())
+                .attr("fill", "#6366f1") // Indigo
+                .attr("rx", 3);
+                
+            // Aggiungi etichette
+            g.selectAll(".label")
+                .data(data)
+                .enter().append("text")
+                .attr("class", "label")
+                .attr("x", d => x(d.totalQuantity) - 5)
+                .attr("y", d => y(d.customerName) + y.bandwidth() / 2)
+                .attr("dy", "0.35em")
+                .style("text-anchor", "end")
+                .text(d => formatQuantity(d.totalQuantity))
+                .style("fill", "white")
+                .style("font-size", "12px");
+        }
+
+        // ---------------------------------------------------
+        // 7. FUNZIONI MODAL E FORMS (CRUD)
+        // ---------------------------------------------------
+        
+        // CORREZIONE: Funzione di popolamento dei dropdown definita UNA sola volta.
+        function populateEntitySelects() {
+            const select = document.getElementById('transaction-entity-link');
+            // Assicurati che l'elemento esista prima di procedere
+            if (!select) return; 
+            
+            select.innerHTML = '';
+            
+            const type = document.getElementById('transaction-type').value;
+            const entities = type === 'Acquisto' ? suppliers : customers;
+            const placeholderText = type === 'Acquisto' ? 'Seleziona Fornitore' : 'Seleziona Cliente';
+            
+            select.innerHTML += `<option value="" disabled selected>${placeholderText}</option>`;
+            
+            entities.forEach(e => {
+                const name = e.soprannome || e.nomeCompleto;
+                select.innerHTML += `<option value="${e.id}">${name}</option>`;
+            });
+        }
+
+        // --- Transazioni ---
+        function openTransactionModal(type) {
+            const modal = document.getElementById('transaction-modal');
+            const title = document.getElementById('transaction-title');
+            const costGroup = document.getElementById('cost-ricavo-group');
+            const costInput = document.getElementById('transaction-cost');
+            const entityGroup = document.getElementById('entity-link-group');
+            const entityLabel = entityGroup.querySelector('label');
+            const entitySelect = document.getElementById('transaction-entity-link');
+
+            document.getElementById('transaction-form').reset();
+            document.getElementById('transaction-type').value = type;
+
+            if (type === 'Acquisto') {
+                title.textContent = 'Nuovo Acquisto';
+                costGroup.classList.remove('hidden');
+                costInput.placeholder = 'Costo in €';
+                entityGroup.classList.remove('hidden');
+                entityLabel.textContent = 'Fornitore';
+                entitySelect.setAttribute('required', 'required');
+                costInput.setAttribute('required', 'required');
+            } else if (type === 'Vendita') {
+                title.textContent = 'Nuova Vendita';
+                costGroup.classList.remove('hidden');
+                costInput.placeholder = 'Ricavo in €';
+                entityGroup.classList.remove('hidden');
+                entityLabel.textContent = 'Cliente';
+                entitySelect.setAttribute('required', 'required');
+                costInput.setAttribute('required', 'required');
+            } else { // Uso Personale
+                title.textContent = 'Uso Personale';
+                costGroup.classList.add('hidden');
+                costInput.removeAttribute('required');
+                entityGroup.classList.add('hidden');
+                entitySelect.removeAttribute('required');
+            }
+            
+            populateEntitySelects();
+            modal.classList.remove('hidden');
+        }
+
+        function closeTransactionModal() {
+            document.getElementById('transaction-modal').classList.add('hidden');
+        }
+
+        async function handleTransaction(event) {
+            event.preventDefault();
+            if (!isAuthReady) return console.error("Autenticazione non pronta.");
+
+            const type = document.getElementById('transaction-type').value;
+            const quantity = parseFloat(document.getElementById('transaction-quantity').value);
+            const costElement = document.getElementById('transaction-cost');
+            const cost = costElement.required ? parseFloat(costElement.value) : 0;
+            const entityIdElement = document.getElementById('transaction-entity-link');
+            const entityId = entityIdElement.required ? entityIdElement.value : null;
+
+            if (isNaN(quantity) || (costElement.required && isNaN(cost))) {
+                console.error("Valori non validi.");
+                return;
+            }
+            
+            // Check inventario (semplificato: non impediamo la vendita, ma avvertiamo)
+            if ((type === 'Vendita' || type === 'Uso Personale') && quantity > riceInventory) {
+                console.warn(`Attenzione: La quantità supera l'inventario disponibile (${formatQuantity(riceInventory)}).`);
+            }
+
+            const newTransaction = {
+                tipo: type,
+                quantita: quantity,
+                costo: cost, // Usiamo 'costo' per tutti (costo negativo per Acquisto, positivo per Vendita)
+                linkEntita: entityId,
+                data: new Date().toISOString(),
+                // Campi calcolati in app, non salvati: costoUnitario, ricavoUnitario.
+            };
+
+            try {
+                const colRef = collection(db, getCollectionPath(TRANSAZIONI_COLLECTION));
+                await addDoc(colRef, newTransaction);
+                closeTransactionModal();
+            } catch (error) {
+                console.error("Errore nell'aggiunta della transazione:", error);
+            }
+        }
+
+        // --- Fornitori (CRUD) ---
+        function showSupplierModal(docId = null) {
+            document.getElementById('supplier-form').reset();
+            document.getElementById('supplier-doc-id').value = docId || '';
+
+            if (docId) {
+                const supplier = suppliers.find(s => s.id === docId);
+                if (supplier) {
+                    document.getElementById('supplier-name').value = supplier.nomeCompleto || '';
+                    document.getElementById('supplier-alias').value = supplier.soprannome || '';
+                    document.getElementById('supplier-phone').value = supplier.numeroTelefono || '';
+                    document.getElementById('supplier-contact-method').value = supplier.metodoContatto || 'WhatsApp';
+                    document.getElementById('supplier-payment-method').value = supplier.metodoPagamento || 'Contanti';
+                }
+            }
+
+            document.getElementById('supplier-modal').classList.remove('hidden');
+        }
+        
+        function closeSupplierModal() {
+             document.getElementById('supplier-modal').classList.add('hidden');
+        }
+
+        async function handleSupplier(event) {
+            event.preventDefault();
+            if (!isAuthReady) return console.error("Autenticazione non pronta.");
+
+            const docId = document.getElementById('supplier-doc-id').value;
+            const supplierData = {
+                nomeCompleto: document.getElementById('supplier-name').value,
+                soprannome: document.getElementById('supplier-alias').value,
+                numeroTelefono: document.getElementById('supplier-phone').value,
+                metodoContatto: document.getElementById('supplier-contact-method').value,
+                metodoPagamento: document.getElementById('supplier-payment-method').value,
+                immagineProfilo: 'placeholder_url' // Mock data
+            };
+
+            try {
+                if (docId) {
+                    const docRef = doc(db, getCollectionPath(FORNITORI_COLLECTION), docId);
+                    await setDoc(docRef, supplierData, { merge: true });
+                } else {
+                    const colRef = collection(db, getCollectionPath(FORNITORI_COLLECTION));
+                    await addDoc(colRef, supplierData);
+                }
+                closeSupplierModal();
+            } catch (error) {
+                console.error("Errore nel salvataggio del fornitore:", error);
+            }
+        }
+        
+        // --- Clienti (CRUD - Logica Identica a Fornitori) ---
+        function showCustomerModal(docId = null) {
+            document.getElementById('customer-form').reset();
+            document.getElementById('customer-doc-id').value = docId || '';
+
+            if (docId) {
+                const customer = customers.find(c => c.id === docId);
+                if (customer) {
+                    document.getElementById('customer-name').value = customer.nomeCompleto || '';
+                    document.getElementById('customer-alias').value = customer.soprannome || '';
+                    document.getElementById('customer-phone').value = customer.numeroTelefono || '';
+                    document.getElementById('customer-contact-method').value = customer.metodoContatto || 'WhatsApp';
+                    document.getElementById('customer-payment-method').value = customer.metodoPagamento || 'Contanti';
+                }
+            }
+
+            document.getElementById('customer-modal').classList.remove('hidden');
+        }
+
+        function closeCustomerModal() {
+             document.getElementById('customer-modal').classList.add('hidden');
+        }
+
+        async function handleCustomer(event) {
+            event.preventDefault();
+            if (!isAuthReady) return console.error("Autenticazione non pronta.");
+
+            const docId = document.getElementById('customer-doc-id').value;
+            const customerData = {
+                nomeCompleto: document.getElementById('customer-name').value,
+                soprannome: document.getElementById('customer-alias').value,
+                numeroTelefono: document.getElementById('customer-phone').value,
+                metodoContatto: document.getElementById('customer-contact-method').value,
+                metodoPagamento: document.getElementById('customer-payment-method').value,
+                immagineProfilo: 'placeholder_url' // Mock data
+            };
+
+            try {
+                if (docId) {
+                    const docRef = doc(db, getCollectionPath(CLIENTI_COLLECTION), docId);
+                    await setDoc(docRef, customerData, { merge: true });
+                } else {
+                    const colRef = collection(db, getCollectionPath(CLIENTI_COLLECTION));
+                    await addDoc(colRef, customerData);
+                }
+                closeCustomerModal();
+            } catch (error) {
+                console.error("Errore nel salvataggio del cliente:", error);
+            }
+        }
+        
+        // ---------------------------------------------------
+        // 8. FUNZIONI GEMINI API (Pianificatore Scorte)
+        // ---------------------------------------------------
+
+        // Helper per gestione errori e backoff (necessario per le API calls)
+        async function exponentialBackoffFetch(url, options, maxRetries = 5, delay = 1000) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status !== 429) { // Non è un errore di Rate Limit
+                        return response;
+                    }
+                    console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    console.error(`Fetch attempt failed: ${error.message}. Retrying...`);
+                }
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2;
+            }
+            throw new Error("Max retries exceeded.");
+        }
+
+        async function handleStockPlanner() {
+            const modalContent = document.getElementById('stock-planner-result-content');
+            
+            if (monthlyConsumption === 0) {
+                modalContent.innerHTML = `<p class="text-center text-yellow-600 font-semibold">
+                    Non ci sono abbastanza dati di Vendita o Uso Personale per calcolare il consumo medio.
+                    Per un suggerimento accurato, registra almeno un paio di transazioni di Vendita/Uso Personale.
+                </p>`;
+                return;
+            }
+
+            const safetyStockDays = 10; // Un buffer di 10 giorni
+            const dailyConsumptionRate = monthlyConsumption / 30.44;
+            const safetyStock = dailyConsumptionRate * safetyStockDays;
+            const inventoryDaysLeft = riceInventory > 0 ? (riceInventory / dailyConsumptionRate) : 0;
+            const isCritical = riceInventory <= safetyStock;
+            const daysUntilReorder = inventoryDaysLeft - safetyStockDays;
+            
+            const actionRequired = isCritical ? "azione IMMEDIATA" : "monitoraggio";
+
+            const stockDetails = {
+                inventario_attuale_g: riceInventory,
+                consumo_medio_mensile_g: monthlyConsumption,
+                giorni_di_copertura_rimanenti: inventoryDaysLeft,
+                quantita_riordino_suggerita_g: monthlyConsumption * 1.5, // Suggerisci 1.5 mesi di scorta
+                fornitori_disponibili: suppliers.map(s => s.nomeCompleto).join(', ') || "Nessun fornitore registrato"
+            };
+
+            const systemPrompt = `Sei un esperto di pianificazione scorte (Inventory Planner). Analizza i dati forniti per determinare lo stato delle scorte di riso. La tua unica funzione è fornire un'analisi concisa (massimo 3 paragrafi) che risponda a due domande: 1. Lo stato è critico e quanto tempo (giorni) manca prima di raggiungere il livello di scorta di sicurezza? 2. Qual è la quantità di riordino suggerita in base al consumo medio mensile per coprire 1.5 mesi? La risposta deve essere in italiano e non deve contenere grounding o citazioni web.`;
+            const userQuery = `Analizza questa situazione di inventario per chicchi di riso:\nInventario attuale: ${stockDetails.inventario_attuale_g} grammi.\nConsumo medio mensile (Vendite + Uso Personale): ${stockDetails.consumo_medio_mensile_g.toFixed(0)} grammi.\nScorta di sicurezza: ${safetyStockDays} giorni di consumo (${formatQuantity(safetyStock)}).\nAzioni richieste: ${actionRequired}.\nFornitori registrati: ${stockDetails.fornitori_disponibili}`;
+
+            modalContent.innerHTML = `<p class="text-center text-indigo-600 font-bold flex items-center justify-center"><div class="spinner"></div> Analisi Scorte in corso...</p>`;
+
+            try {
+                const response = await exponentialBackoffFetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                        // Non usiamo tools: google_search, perché l'analisi è solo interna
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Errore nella generazione dell'analisi AI.";
+
+                const headerColor = isCritical ? 'text-red-600' : (inventoryDaysLeft < 30 ? 'text-orange-500' : 'text-green-600');
+                const daysLeftText = isCritical ? `**SCORTA CRITICA: Solo ${formatQuantity(riceInventory)} rimanenti!**` : `Hai copertura per circa ${inventoryDaysLeft.toFixed(1)} giorni.`;
+                const reorderCall = isCritical ? `**AZIONE IMMEDIATA:** Contatta i fornitori. Quantità suggerita: ${formatQuantity(stockDetails.quantita_riordino_suggerita_g)}.` : `Livello scorta di sicurezza (copertura 10 giorni): ${formatCurrency(safetyStock)}. Nessun riordino urgente richiesto.`;
+                
+                // Formatta l'output finale
+                modalContent.innerHTML = `
+                    <div class="space-y-4">
+                        <h4 class="text-xl font-bold ${headerColor}">Riepilogo Scorte Attuale:</h4>
+                        <ul class="list-disc list-inside space-y-1 text-gray-700">
+                            <li>Inventario: <span class="font-bold">${formatQuantity(riceInventory)}</span></li>
+                            <li>Consumo Medio Mensile: <span class="font-bold">${formatQuantity(monthlyConsumption)}</span></li>
+                            <li>Giorni di Copertura Totale: <span class="font-bold">${inventoryDaysLeft.toFixed(1)} giorni</span></li>
+                        </ul>
+                        <div class="border-t border-gray-300 pt-4">
+                           <p class="text-lg font-semibold ${headerColor} mb-2">${daysLeftText}</p>
+                           <p class="text-lg font-semibold text-indigo-700">${reorderCall}</p>
+                        </div>
+                        <div class="border-t border-gray-300 pt-4">
+                           <h4 class="text-md font-bold text-gray-800">Analisi e Suggerimenti AI:</h4>
+                           <div class="prose max-w-none text-gray-700 mt-2">${text}</div>
+                        </div>
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error("Errore chiamata Gemini API:", error);
+                modalContent.innerHTML = `<p class="text-red-500">Si è verificato un errore durante l'analisi AI. Riprova più tardi. (Errore Gemini: Chiave non valida o utilizzo esaurito).</p>`;
+            }
+        }
+
+        function openStockPlannerModal() {
+            document.getElementById('stock-planner-modal').classList.remove('hidden');
+            handleStockPlanner(); // Avvia l'analisi non appena il modal si apre
+        }
+
+        function closeStockPlannerModal() {
+            document.getElementById('stock-planner-modal').classList.add('hidden');
+        }
+
+
+        // ---------------------------------------------------
+        // 9. AVVIO APPLICAZIONE
+        // ---------------------------------------------------
+
+
+        window.showSection = showSection;
+        window.openTransactionModal = openTransactionModal;
+        window.closeTransactionModal = closeTransactionModal;
+        window.handleTransaction = handleTransaction;
+        window.showSupplierModal = showSupplierModal;
+        window.closeSupplierModal = closeSupplierModal;
+        window.handleSupplier = handleSupplier;
+        window.showCustomerModal = showCustomerModal;
+        window.closeCustomerModal = closeCustomerModal;
+        window.handleCustomer = handleCustomer;
+        
+        // Funzioni Gemini (Aggiornate)
+        window.openStockPlannerModal = openStockPlannerModal;
+        window.closeStockPlannerModal = closeStockPlannerModal;
+        
+        initFirebase();
+
+        // ---------------------------------------------------
+        // 10. REGISTRAZIONE SERVICE WORKER (PWA) <--- NUOVO CODICE
+        // ---------------------------------------------------
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+              .then(registration => {
+                console.log('ServiceWorker registration successful with scope: ', registration.scope);
+              })
+              .catch(error => {
+                console.log('ServiceWorker registration failed: ', error);
+              });
+          });
+        }
+    </script>
 </body>
 </html>
